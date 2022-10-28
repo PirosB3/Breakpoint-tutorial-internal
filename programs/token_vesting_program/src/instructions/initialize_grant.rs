@@ -25,7 +25,7 @@ pub struct InitializeNewGrant<'info> {
     )]
     /// CHECK: The account is a PDA
     grant_custody: AccountInfo<'info>,
-    
+
     system_program: Program<'info, System>,
     rent: Sysvar<'info, Rent>,
 }
@@ -35,7 +35,7 @@ pub struct Bumps {
     pub grant_custody_bump: u8,
 }
 
-/// This is the first instruction called by the employer when they want to set up a new vesting grant. 
+/// This is the first instruction called by the employer when they want to set up a new vesting grant.
 /// This instruction will set up the vesting schedule, validate the parameters, and transfer the total
 /// grant size to an escrow account (called grant_custody).
 impl<'info> InitializeNewGrant<'info> {

@@ -32,6 +32,8 @@ pub struct RevokeGrant<'info> {
     system_program: Program<'info, System>,
 }
 
+/// This instruction is called by the employer when they leave the companty (and the grant is complete).
+/// When this is called, we pay out all releasable amount to the employee, and refund the rest back to th employer.
 impl<'info> RevokeGrant<'info> {
     fn system_program_context<T: ToAccountMetas + ToAccountInfos<'info>>(
         &self,
@@ -41,6 +43,7 @@ impl<'info> RevokeGrant<'info> {
     }
 
     pub fn handle(&mut self) -> Result<()> {
+        // This first step is simular to "withdraw" - compute releasable amount and transfer it to the employee.
         let vesting = get_vesting_instance(
             &self.grant.params,
             GrantStateParams {
@@ -74,7 +77,9 @@ impl<'info> RevokeGrant<'info> {
             data.already_issued_token_amount += releasable_amount;
         }
 
-        // Compute how much the account has
+        // Compute how much of the remaining grant is stil in the escrow
+        // account (grant custody).
+        // Send all the remaining amount back to employer
         let amount_to_send_back = self.grant_custody.lamports();
         msg!("Sending back {} to employer", amount_to_send_back);
         let send_back_to_employer = Transfer {
@@ -91,6 +96,8 @@ impl<'info> RevokeGrant<'info> {
                 ]]),
             amount_to_send_back,
         )?;
+
+        // Mark grant as revoked, so this function cannot be called again.
         let data = &mut self.grant;
         data.revoked = true;
         Ok(())

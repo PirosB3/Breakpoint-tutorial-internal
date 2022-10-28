@@ -52,7 +52,7 @@ impl<'info> WithdrawGrant<'info> {
                 already_issued_token_amount: self.grant.already_issued_token_amount,
             },
         )?;
-        
+
         // Compute the current releasable amount
         //
         // Example: Total grant is 4000 SOL
@@ -68,10 +68,9 @@ impl<'info> WithdrawGrant<'info> {
         // Before a grant is permanently terminated, we force the employee
         // to withdraw all the remaining freable (vested) tokens - if any exist.
         if releasable_amount > 0 {
-            
             // In this transfer, we must pass in Signer Seeds - because funds are going from the Grat Custody
             // To the employee - and Grant Custody is a PDA.
-            // 
+            //
             // Grant Custody -> 1000 SOL -> Employee
             anchor_lang::system_program::transfer(
                 self.system_program_context(Transfer {
@@ -87,7 +86,7 @@ impl<'info> WithdrawGrant<'info> {
                 releasable_amount,
             )?;
 
-            // Transfer was successful, update persistent state to account for the funds already released. 
+            // Transfer was successful, update persistent state to account for the funds already released.
             let data = &mut self.grant;
             data.already_issued_token_amount += releasable_amount;
         }
