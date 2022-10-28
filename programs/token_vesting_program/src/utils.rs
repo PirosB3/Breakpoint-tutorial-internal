@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 use anchor_lang::{AnchorDeserialize, AnchorSerialize};
-use vestinglib::{Vesting, CanInitialize, VestingInitParams};
+use vestinglib::{CanInitialize, Vesting, VestingInitParams};
 
 use crate::TokenVestingError;
 
@@ -26,7 +26,7 @@ pub fn get_vesting_instance(params: &GrantInputParams, state: GrantStateParams) 
         seconds_per_slice,
         start_unix,
     } = *params;
-    let GrantStateParams{
+    let GrantStateParams {
         already_issued_token_amount,
         revoked,
     } = state;
@@ -38,6 +38,7 @@ pub fn get_vesting_instance(params: &GrantInputParams, state: GrantStateParams) 
         start_unix,
         revoked,
         already_issued_token_amount,
-    }).or(Err(TokenVestingError::ParamsInvalid))?;
+    })
+    .or(Err(TokenVestingError::ParamsInvalid))?;
     Ok(vesting)
 }

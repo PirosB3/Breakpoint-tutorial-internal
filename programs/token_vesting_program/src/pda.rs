@@ -19,6 +19,6 @@ macro_rules! grant_custody_seeds {
             $ctx.accounts.employer.key().as_ref(),
             $ctx.accounts.employee.key().as_ref(),
             &[$ctx.accounts.grant_account.grant_custody_bump],
-        ]] 
+        ]]
     };
 }

@@ -1,10 +1,9 @@
-use std::collections::BTreeMap;
-use anchor_lang::system_program::Transfer;
 use anchor_lang::prelude::*;
+use anchor_lang::system_program::Transfer;
+use std::collections::BTreeMap;
 
 use crate::account_data::Grant;
-use crate::utils::{get_vesting_instance, GrantStateParams, GrantInputParams};
-
+use crate::utils::{get_vesting_instance, GrantInputParams, GrantStateParams};
 
 #[derive(Accounts)]
 pub struct InitializeNewGrant<'info> {
@@ -36,23 +35,16 @@ impl<'info> InitializeNewGrant<'info> {
         &self,
         data: T,
     ) -> CpiContext<'_, '_, '_, 'info, T> {
-        CpiContext::new(
-            self.system_program.to_account_info(),
-            data,
-        )
+        CpiContext::new(self.system_program.to_account_info(), data)
     }
 
-    pub fn handle(
-        &mut self,
-        params: GrantInputParams,
-        bumps: &BTreeMap<String, u8>,
-    ) -> Result<()> {
+    pub fn handle(&mut self, params: GrantInputParams, bumps: &BTreeMap<String, u8>) -> Result<()> {
         let _ = get_vesting_instance(
             &params,
             GrantStateParams {
                 revoked: self.grant_account.revoked,
                 already_issued_token_amount: self.grant_account.already_issued_token_amount,
-            }
+            },
         )?;
 
         let context = self.system_program_context(Transfer {

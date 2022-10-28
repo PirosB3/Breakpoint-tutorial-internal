@@ -1,17 +1,16 @@
 use anchor_lang::prelude::*;
 use anchor_lang::system_program::Transfer;
 
+mod account_data;
+mod instructions;
 mod pda;
 mod utils;
-mod instructions;
-mod account_data;
 
-use account_data::{Grant};
-use utils::{GrantInputParams, GrantStateParams, get_vesting_instance};
-use vestinglib::{GetReleasableAmountParams};
+use account_data::Grant;
 use instructions::initialize_grant::*;
 use instructions::withdraw::*;
-
+use utils::{get_vesting_instance, GrantInputParams, GrantStateParams};
+use vestinglib::GetReleasableAmountParams;
 
 declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
@@ -26,7 +25,6 @@ pub struct Res {
     pub releasable_amount: u64,
 }
 
-
 #[program]
 pub mod token_vesting_program {
     use super::*;
@@ -37,7 +35,7 @@ pub mod token_vesting_program {
             GrantStateParams {
                 revoked: ctx.accounts.grant_account.revoked,
                 already_issued_token_amount: ctx.accounts.grant_account.already_issued_token_amount,
-            }
+            },
         )?;
         let clock = Clock::get()?;
         let releasable_amount = vesting
@@ -52,9 +50,10 @@ pub mod token_vesting_program {
                 to: ctx.accounts.employee.to_account_info(),
             };
             anchor_lang::system_program::transfer(
-                ctx.accounts.system_program_context(release_to_employee)
-                .with_signer(grant_custody_seeds!(ctx)),
-                releasable_amount
+                ctx.accounts
+                    .system_program_context(release_to_employee)
+                    .with_signer(grant_custody_seeds!(ctx)),
+                releasable_amount,
             )?;
             let data = &mut ctx.accounts.grant_account;
             data.already_issued_token_amount += releasable_amount;
@@ -71,7 +70,7 @@ pub mod token_vesting_program {
             ctx.accounts
                 .system_program_context(send_back_to_employer)
                 .with_signer(grant_custody_seeds!(ctx)),
-            amount_to_send_back
+            amount_to_send_back,
         )?;
         let data = &mut ctx.accounts.grant_account;
         data.revoked = true;
@@ -86,13 +85,7 @@ pub mod token_vesting_program {
     pub fn withdraw(ctx: Context<WithdrawGrant>, delta: u8) -> Result<()> {
         ctx.accounts.handle()
     }
-
-
-
 }
-
-
-
 
 #[derive(Accounts)]
 pub struct RevokeGrant<'info> {
@@ -126,9 +119,6 @@ impl<'info> RevokeGrant<'info> {
         &self,
         data: T,
     ) -> CpiContext<'_, '_, '_, 'info, T> {
-        CpiContext::new(
-            self.system_program.to_account_info(),
-            data,
-        )
+        CpiContext::new(self.system_program.to_account_info(), data)
     }
 }

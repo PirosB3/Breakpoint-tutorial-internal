@@ -1,10 +1,9 @@
-
-use anchor_lang::system_program::Transfer;
 use anchor_lang::prelude::*;
+use anchor_lang::system_program::Transfer;
 use vestinglib::GetReleasableAmountParams;
 
 use crate::account_data::Grant;
-use crate::utils::{get_vesting_instance, GrantStateParams, GrantInputParams};
+use crate::utils::{get_vesting_instance, GrantInputParams, GrantStateParams};
 
 #[derive(Accounts)]
 pub struct WithdrawGrant<'info> {
@@ -38,21 +37,16 @@ impl<'info> WithdrawGrant<'info> {
         &self,
         data: T,
     ) -> CpiContext<'_, '_, '_, 'info, T> {
-        CpiContext::new(
-            self.system_program.to_account_info(),
-            data,
-        )
+        CpiContext::new(self.system_program.to_account_info(), data)
     }
 
-    pub fn handle(
-        &mut self,
-    ) -> Result<()> {
+    pub fn handle(&mut self) -> Result<()> {
         let vesting = get_vesting_instance(
             &self.grant_account.params,
             GrantStateParams {
                 revoked: self.grant_account.revoked,
                 already_issued_token_amount: self.grant_account.already_issued_token_amount,
-            }
+            },
         )?;
         let clock = Clock::get()?;
         let releasable_amount = vesting
@@ -66,13 +60,14 @@ impl<'info> WithdrawGrant<'info> {
                 self.system_program_context(Transfer {
                     from: self.grant_custody.to_account_info(),
                     to: self.employee.to_account_info(),
-                }).with_signer(&[&[
+                })
+                .with_signer(&[&[
                     b"grant_custody",
                     self.employer.key().as_ref(),
                     self.employee.key().as_ref(),
                     &[self.grant_account.grant_custody_bump],
                 ]]),
-                releasable_amount
+                releasable_amount,
             )?;
 
             let data = &mut self.grant_account;
@@ -80,5 +75,4 @@ impl<'info> WithdrawGrant<'info> {
         }
         Ok(())
     }
-
 }

@@ -23,4 +23,3 @@ impl Grant {
         discriminant + grant_input_params + 8 + 1 + 1 + 1 + (32 * 3) + 1
     };
 }
-
