@@ -31,7 +31,15 @@ pub mod token_vesting_program {
     use super::*;
 
     pub fn initialize(ctx: Context<InitializeNewGrant>, params: GrantInputParams) -> Result<()> {
-        ctx.accounts.handle(params, &ctx.bumps)
+        let grant_bump = *ctx.bumps.get("grant").unwrap();
+        let grant_custody_bump = *ctx.bumps.get("grant_custody").unwrap();
+        ctx.accounts.handle(
+            params,
+            Bumps {
+                grant_bump,
+                grant_custody_bump,
+            },
+        )
     }
 
     pub fn revoke(ctx: Context<RevokeGrant>) -> Result<()> {

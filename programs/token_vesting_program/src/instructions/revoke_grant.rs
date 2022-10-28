@@ -16,16 +16,16 @@ pub struct RevokeGrant<'info> {
     #[account(
         mut,
         seeds = [b"grant_account", employer.key().as_ref(), employee.key().as_ref()],
-        bump = grant_account.bump,
-        constraint = grant_custody.key() == grant_account.grant_custody,
-        constraint = grant_account.initialized == true,
-        constraint = grant_account.revoked == false,
+        bump = grant.bump,
+        constraint = grant.initialized == true,
+        constraint = grant.revoked == false,
     )]
-    grant_account: Account<'info, Grant>,
+    grant: Account<'info, Grant>,
 
     #[account(
         mut,
-        seeds = [b"grant_custody", employer.key().as_ref(), employee.key().as_ref()], bump
+        seeds = [b"grant_custody", employer.key().as_ref(), employee.key().as_ref()],
+        bump = grant.grant_custody_bump,
     )]
     /// CHECK: The account is a PDA
     grant_custody: AccountInfo<'info>,
@@ -42,10 +42,10 @@ impl<'info> RevokeGrant<'info> {
 
     pub fn handle(&mut self) -> Result<()> {
         let vesting = get_vesting_instance(
-            &self.grant_account.params,
+            &self.grant.params,
             GrantStateParams {
-                revoked: self.grant_account.revoked,
-                already_issued_token_amount: self.grant_account.already_issued_token_amount,
+                revoked: self.grant.revoked,
+                already_issued_token_amount: self.grant.already_issued_token_amount,
             },
         )?;
         let clock = Clock::get()?;
@@ -66,11 +66,11 @@ impl<'info> RevokeGrant<'info> {
                         b"grant_custody",
                         self.employer.key().as_ref(),
                         self.employee.key().as_ref(),
-                        &[self.grant_account.grant_custody_bump],
+                        &[self.grant.grant_custody_bump],
                     ]]),
                 releasable_amount,
             )?;
-            let data = &mut self.grant_account;
+            let data = &mut self.grant;
             data.already_issued_token_amount += releasable_amount;
         }
 
@@ -87,11 +87,11 @@ impl<'info> RevokeGrant<'info> {
                     b"grant_custody",
                     self.employer.key().as_ref(),
                     self.employee.key().as_ref(),
-                    &[self.grant_account.grant_custody_bump],
+                    &[self.grant.grant_custody_bump],
                 ]]),
             amount_to_send_back,
         )?;
-        let data = &mut self.grant_account;
+        let data = &mut self.grant;
         data.revoked = true;
         Ok(())
     }

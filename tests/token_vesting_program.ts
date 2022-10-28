@@ -21,7 +21,7 @@ describe("token_vesting_program", () => {
     console.log(`[Program] ${program.programId.toBase58()}`);
     console.log(`[EMPLOYEE] ${employee.publicKey.toBase58()}`);
 
-    const [grantAccount,] = await PublicKey.findProgramAddress(
+    const [grant,] = await PublicKey.findProgramAddress(
       [
         Buffer.from("grant_account"),
         provider.wallet.publicKey.toBuffer(),
@@ -38,7 +38,7 @@ describe("token_vesting_program", () => {
       ],
       program.programId
     );
-    console.log(`[GRANT ACCT] ${grantAccount.toBase58()}`);
+    console.log(`[GRANT ACCT] ${grant.toBase58()}`);
     console.log(`[GRANT CUSTODY] ${grantCustody.toBase58()}`);
 
     const tx = await program.methods.initialize({
@@ -50,7 +50,7 @@ describe("token_vesting_program", () => {
     }).accounts({
       employer: provider.wallet.publicKey,
       employee: employee.publicKey,
-      grantAccount,
+      grant,
       grantCustody,
     })
     .rpc({commitment: 'confirmed'});
