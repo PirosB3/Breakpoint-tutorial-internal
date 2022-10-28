@@ -5,17 +5,21 @@ use vestinglib::GetReleasableAmountParams;
 use crate::account_data::Grant;
 use crate::utils::{get_vesting_instance, GrantInputParams, GrantStateParams};
 
+
+
 #[derive(Accounts)]
-pub struct WithdrawGrant<'info> {
+pub struct RevokeGrant<'info> {
     #[account(mut)]
-    employee: Signer<'info>,
+    employer: Signer<'info>,
     /// CHECK: The account should just be the public key of whoever we want to give the grant to
-    employer: AccountInfo<'info>,
+    #[account(mut)]
+    employee: AccountInfo<'info>,
 
     #[account(
         mut,
         seeds = [b"grant_account", employer.key().as_ref(), employee.key().as_ref()],
         bump = grant_account.bump,
+        constraint = grant_custody.key() == grant_account.grant_custody,
         constraint = grant_account.initialized == true,
         constraint = grant_account.revoked == false,
     )]
@@ -23,16 +27,14 @@ pub struct WithdrawGrant<'info> {
 
     #[account(
         mut,
-        seeds = [b"grant_custody", employer.key().as_ref(), employee.key().as_ref()],
-        bump = grant_account.grant_custody_bump,
-        constraint = grant_custody.key() == grant_account.grant_custody,
+        seeds = [b"grant_custody", employer.key().as_ref(), employee.key().as_ref()], bump
     )]
     /// CHECK: The account is a PDA
     grant_custody: AccountInfo<'info>,
     system_program: Program<'info, System>,
 }
 
-impl<'info> WithdrawGrant<'info> {
+impl<'info> RevokeGrant<'info> {
     fn system_program_context<T: ToAccountMetas + ToAccountInfos<'info>>(
         &self,
         data: T,
@@ -54,25 +56,45 @@ impl<'info> WithdrawGrant<'info> {
                 current_time_unix: clock.unix_timestamp as u64,
             })
             .unwrap();
-        msg!("Releasable amount: {}", releasable_amount);
         if releasable_amount > 0 {
+            msg!("Sending remaining {} to employee", releasable_amount);
+            let release_to_employee = Transfer {
+                from: self.grant_custody.to_account_info(),
+                to: self.employee.to_account_info(),
+            };
             anchor_lang::system_program::transfer(
-                self.system_program_context(Transfer {
-                    from: self.grant_custody.to_account_info(),
-                    to: self.employee.to_account_info(),
-                })
+                self.system_program_context(release_to_employee)
+                    .with_signer(&[&[
+                        b"grant_custody",
+                        self.employer.key().as_ref(),
+                        self.employee.key().as_ref(),
+                        &[self.grant_account.grant_custody_bump],
+                    ]]),
+                releasable_amount,
+            )?;
+            let data = &mut self.grant_account;
+            data.already_issued_token_amount += releasable_amount;
+        }
+
+        // Compute how much the account has
+        let amount_to_send_back = self.grant_custody.lamports();
+        msg!("Sending back {} to employer", amount_to_send_back);
+        let send_back_to_employer = Transfer {
+            from: self.grant_custody.to_account_info(),
+            to: self.employer.to_account_info(),
+        };
+        anchor_lang::system_program::transfer(
+            self.system_program_context(send_back_to_employer)
                 .with_signer(&[&[
                     b"grant_custody",
                     self.employer.key().as_ref(),
                     self.employee.key().as_ref(),
                     &[self.grant_account.grant_custody_bump],
                 ]]),
-                releasable_amount,
-            )?;
-
-            let data = &mut self.grant_account;
-            data.already_issued_token_amount += releasable_amount;
-        }
+            amount_to_send_back,
+        )?;
+        let data = &mut self.grant_account;
+        data.revoked = true;
         Ok(())
     }
 }
