@@ -8,8 +8,8 @@ mod utils;
 
 use account_data::Grant;
 use instructions::initialize_grant::*;
-use instructions::withdraw::*;
 use instructions::revoke_grant::*;
+use instructions::withdraw::*;
 use utils::{get_vesting_instance, GrantInputParams, GrantStateParams};
 use vestinglib::GetReleasableAmountParams;
 
