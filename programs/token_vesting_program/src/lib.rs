@@ -1,6 +1,5 @@
 use anchor_lang::prelude::*;
 use anchor_lang::system_program::Transfer;
-// use instructions::initialize_grant::*;
 
 mod pda;
 mod utils;
@@ -11,6 +10,7 @@ use account_data::{Grant};
 use utils::{GrantInputParams, GrantStateParams, get_vesting_instance};
 use vestinglib::{GetReleasableAmountParams};
 use instructions::initialize_grant::*;
+use instructions::withdraw::*;
 
 
 declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
@@ -26,16 +26,6 @@ pub struct Res {
     pub releasable_amount: u64,
 }
 
-macro_rules! grant_custody_seeds {
-    ($ctx:expr) => {
-        &[&[
-            b"grant_custody",
-            $ctx.accounts.employer.key().as_ref(),
-            $ctx.accounts.employee.key().as_ref(),
-            &[$ctx.accounts.grant_account.grant_custody_bump],
-        ]] 
-    };
-}
 
 #[program]
 pub mod token_vesting_program {
@@ -93,34 +83,8 @@ pub mod token_vesting_program {
         Ok(())
     }
 
-    pub fn withdraw(ctx: Context<WithdrawGrant>, delta: u8) -> Result<Res> {
-        let vesting = get_vesting_instance(
-            &ctx.accounts.grant_account.params,
-            GrantStateParams {
-                revoked: ctx.accounts.grant_account.revoked,
-                already_issued_token_amount: ctx.accounts.grant_account.already_issued_token_amount,
-            }
-        )?;
-        let clock = Clock::get()?;
-        let releasable_amount = vesting
-            .get_releasable_amount(&GetReleasableAmountParams {
-                current_time_unix: clock.unix_timestamp as u64,
-            })
-            .unwrap();
-        msg!("Releasable amount: {}", releasable_amount);
-        if releasable_amount > 0 {
-            anchor_lang::system_program::transfer(
-                ctx.accounts.system_program_context(Transfer {
-                    from: ctx.accounts.grant_custody.to_account_info(),
-                    to: ctx.accounts.employee.to_account_info(),
-                }).with_signer(grant_custody_seeds!(ctx)),
-                releasable_amount
-            )?;
-
-            let data = &mut ctx.accounts.grant_account;
-            data.already_issued_token_amount += releasable_amount;
-        }
-        Ok(Res { releasable_amount })
+    pub fn withdraw(ctx: Context<WithdrawGrant>, delta: u8) -> Result<()> {
+        ctx.accounts.handle()
     }
 
 
@@ -128,44 +92,6 @@ pub mod token_vesting_program {
 }
 
 
-#[derive(Accounts)]
-pub struct WithdrawGrant<'info> {
-    #[account(mut)]
-    employee: Signer<'info>,
-    /// CHECK: The account should just be the public key of whoever we want to give the grant to
-    employer: AccountInfo<'info>,
-
-    #[account(
-        mut,
-        seeds = [b"grant_account", employer.key().as_ref(), employee.key().as_ref()],
-        bump = grant_account.bump,
-        constraint = grant_account.initialized == true,
-        constraint = grant_account.revoked == false,
-    )]
-    grant_account: Account<'info, Grant>,
-
-    #[account(
-        mut,
-        seeds = [b"grant_custody", employer.key().as_ref(), employee.key().as_ref()],
-        bump = grant_account.grant_custody_bump,
-        constraint = grant_custody.key() == grant_account.grant_custody,
-    )]
-    /// CHECK: The account is a PDA
-    grant_custody: AccountInfo<'info>,
-    system_program: Program<'info, System>,
-}
-
-impl<'info> WithdrawGrant<'info> {
-    pub fn system_program_context<T: ToAccountMetas + ToAccountInfos<'info>>(
-        &self,
-        data: T,
-    ) -> CpiContext<'_, '_, '_, 'info, T> {
-        CpiContext::new(
-            self.system_program.to_account_info(),
-            data,
-        )
-    }
-}
 
 
 #[derive(Accounts)]
