@@ -3,7 +3,7 @@ use anchor_lang::system_program::Transfer;
 use vestinglib::GetReleasableAmountParams;
 
 use crate::account_data::Grant;
-use crate::utils::{get_vesting_instance, GrantInputParams, GrantStateParams};
+use crate::utils::{get_vesting_instance, GrantStateParams};
 
 #[derive(Accounts)]
 pub struct WithdrawGrant<'info> {

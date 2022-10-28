@@ -18,6 +18,8 @@ pub struct GrantStateParams {
     pub already_issued_token_amount: u64,
 }
 
+/// Returns a new vestinglib::Vesting instance given the input parameters of the grant and the
+/// last persisted grant state.
 pub fn get_vesting_instance(params: &GrantInputParams, state: GrantStateParams) -> Result<Vesting> {
     let GrantInputParams {
         cliff_seconds,

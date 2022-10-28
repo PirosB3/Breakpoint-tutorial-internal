@@ -1,17 +1,13 @@
 use anchor_lang::prelude::*;
-use anchor_lang::system_program::Transfer;
 
 mod account_data;
 mod instructions;
-mod pda;
 mod utils;
 
-use account_data::Grant;
 use instructions::initialize_grant::*;
 use instructions::revoke_grant::*;
 use instructions::withdraw::*;
-use utils::{get_vesting_instance, GrantInputParams, GrantStateParams};
-use vestinglib::GetReleasableAmountParams;
+use utils::GrantInputParams;
 
 declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
