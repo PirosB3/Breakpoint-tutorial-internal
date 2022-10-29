@@ -23,7 +23,7 @@ pub struct InitializeNewGrant<'info> {
         mut,
         seeds = [b"grant_custody", employer.key().as_ref(), employee.key().as_ref()], bump
     )]
-    /// CHECK: The account is a PDA
+    /// CHECK: The account is a PDA and does not read/write data
     grant_custody: AccountInfo<'info>,
 
     system_program: Program<'info, System>,

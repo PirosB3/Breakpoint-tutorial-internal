@@ -32,7 +32,7 @@ pub struct RevokeGrant<'info> {
     system_program: Program<'info, System>,
 }
 
-/// This instruction is called by the employer when they leave the companty (and the grant is complete).
+/// This instruction is called by the employer when an employee leaves the companty (and the grant is revoked).
 /// When this is called, we pay out all releasable amount to the employee, and refund the rest back to th employer.
 impl<'info> RevokeGrant<'info> {
     fn system_program_context<T: ToAccountMetas + ToAccountInfos<'info>>(

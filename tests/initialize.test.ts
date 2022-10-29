@@ -20,14 +20,9 @@ interface Params {
   grantTokenAmount: anchor.BN,
 }
 
-interface UnitTestParams {
-    employeeKeypair: Keypair;
-    accounts: {
-        employer: PublicKey;
-        employee: PublicKey;
-        grant: PublicKey;
-        grantCustody: PublicKey;
-    }
+interface PDAAccounts {
+    grant: PublicKey;
+    grantCustody: PublicKey;
 }
 
 export function makeParams(startTime: string, cliffMonths: number, vestingYears: number, stepFunctionSeconds: number, grantTokenAmountInSol: string ): Params {
@@ -44,6 +39,7 @@ export function makeParams(startTime: string, cliffMonths: number, vestingYears:
     }
 }
 
+
 describe("Initialize", () => {
     // Configure the client to use the local cluster.
     const provider = anchor.AnchorProvider.env();
@@ -51,44 +47,46 @@ describe("Initialize", () => {
     const { connection } = provider;
     const program = anchor.workspace.TokenVestingProgram as Program<TokenVestingProgram>;
 
-    let unitTestParams: UnitTestParams;
-    beforeEach(async () => {
-        const employeeKeypair = Keypair.generate();
-
-        const employer = provider.wallet.publicKey;
-        const employee = employeeKeypair.publicKey;
+    const makeAccounts = async (params: {employee: PublicKey, employer: PublicKey}): Promise<PDAAccounts> => {
         const [grant,] = await PublicKey.findProgramAddress(
             [
                 Buffer.from("grant_account"),
-                provider.wallet.publicKey.toBuffer(),
-                employee.toBuffer(),
+                params.employer.toBuffer(),
+                params.employee.toBuffer(),
             ],
             program.programId
         );
         const [grantCustody,] = await PublicKey.findProgramAddress(
             [
                 Buffer.from("grant_custody"),
-                provider.wallet.publicKey.toBuffer(),
-                employee.toBuffer(),
+                params.employer.toBuffer(),
+                params.employee.toBuffer(),
             ],
             program.programId
         );
-        unitTestParams = {
-            employeeKeypair,
-            accounts: {
+        return {
+            grant,
+            grantCustody,
+        }
+    }
+
+    beforeEach(async () => {
+        const employeeKeypair = Keypair.generate();
+    })
+
+    it('correctly initializes a new account and transfers the funds', async () => {
+        const employer = provider.wallet.publicKey;
+        const employee = Keypair.generate().publicKey;
+        const { grant, grantCustody } = await makeAccounts({employer, employee});
+        const params = makeParams('2020-01-01', 6, 4, ONE_DAY_IN_SECONDS, '10');
+        const initializeTransaction = await program.methods
+            .initialize(params)
+            .accounts({
                 employee,
                 employer,
                 grant,
                 grantCustody
-            }
-        };
-    })
-
-    it('correctly initializes a new account and transfers the funds', async () => {
-        const params = makeParams('2020-01-01', 6, 4, ONE_DAY_IN_SECONDS, '10');
-        const initializeTransaction = await program.methods
-            .initialize(params)
-            .accounts(unitTestParams.accounts)
+            })
             .rpc({ commitment: "confirmed" });
         console.log(`[Initialize] ${initializeTransaction}`);
 
@@ -104,21 +102,21 @@ describe("Initialize", () => {
           tx.transaction.message.accountKeys.findIndex(
             (acct) =>
               acct.pubkey.toBase58() ===
-              unitTestParams.accounts.grantCustody.toBase58()
+              grantCustody.toBase58()
           );
         const grantCustodyDelta = tx.meta.postBalances[grantCustodyAcctIdx] - tx.meta.preBalances[grantCustodyAcctIdx]
         expect(grantCustodyDelta.toString()).to.eql(totalTransfer);
         const transferIx = tx.meta.innerInstructions[0].instructions.find(ix => (ix as any).parsed.type === "transfer");
         expect((transferIx as any).parsed.info).eql({
-            source: unitTestParams.accounts.employer.toBase58(),
-            destination: unitTestParams.accounts.grantCustody.toBase58(),
+            source: employer.toBase58(),
+            destination: grantCustody.toBase58(),
             lamports: parseInt(totalTransfer),
         });
 
         // Check data in the 
-        const grantData = await program.account.grant.fetch(unitTestParams.accounts.grant);
-        expect(grantData.employee.toBase58()).to.eq(unitTestParams.accounts.employee.toBase58());
-        expect(grantData.employer.toBase58()).to.eq(unitTestParams.accounts.employer.toBase58());
+        const grantData = await program.account.grant.fetch(grant);
+        expect(grantData.employee.toBase58()).to.eq(employee.toBase58());
+        expect(grantData.employer.toBase58()).to.eq(employer.toBase58());
         expect(grantData.initialized).to.eq(true);
         expect(grantData.revoked).to.eq(false);
         expect(grantData.alreadyIssuedTokenAmount.toNumber()).to.eq(0);
