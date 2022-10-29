@@ -115,18 +115,20 @@ describe("Initialize", () => {
             lamports: parseInt(totalTransfer),
         });
 
-        // Check account
-        const foo = await program.account.grant.fetch(unitTestParams.accounts.grant);
-        expect(foo.employee.toBase58()).to.eq(unitTestParams.accounts.employee.toBase58());
-        expect(foo.employer.toBase58()).to.eq(unitTestParams.accounts.employer.toBase58());
-        expect(foo.initialized).to.eq(true);
-        expect(foo.revoked).to.eq(false);
-        expect(foo.alreadyIssuedTokenAmount.toNumber()).to.eq(0);
-        expect(foo.params.cliffSeconds.toNumber()).to.eq(params.cliffSeconds.toNumber());
-        expect(foo.params.startUnix.toNumber()).to.eq(params.startUnix.toNumber());
-        expect(foo.params.durationSeconds.toNumber()).to.eq(params.durationSeconds.toNumber());
-        expect(foo.params.grantTokenAmount.toNumber()).to.eq(params.grantTokenAmount.toNumber());
-        expect(foo.params.secondsPerSlice.toNumber()).to.eq(params.secondsPerSlice.toNumber());
+        // Check data in the 
+        const grantData = await program.account.grant.fetch(unitTestParams.accounts.grant);
+        expect(grantData.employee.toBase58()).to.eq(unitTestParams.accounts.employee.toBase58());
+        expect(grantData.employer.toBase58()).to.eq(unitTestParams.accounts.employer.toBase58());
+        expect(grantData.initialized).to.eq(true);
+        expect(grantData.revoked).to.eq(false);
+        expect(grantData.alreadyIssuedTokenAmount.toNumber()).to.eq(0);
+        expect(grantData.params.cliffSeconds.toNumber()).to.eq(params.cliffSeconds.toNumber());
+        expect(grantData.params.startUnix.toNumber()).to.eq(params.startUnix.toNumber());
+        expect(grantData.params.durationSeconds.toNumber()).to.eq(params.durationSeconds.toNumber());
+        expect(grantData.params.grantTokenAmount.toNumber()).to.eq(params.grantTokenAmount.toNumber());
+        expect(grantData.params.secondsPerSlice.toNumber()).to.eq(params.secondsPerSlice.toNumber());
+        expect(grantData.bump).to.not.eql(0);
+        expect(grantData.grantCustodyBump).to.not.eql(0);
     });
 
     // Reverts if funds are unavailable
