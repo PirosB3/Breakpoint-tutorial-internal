@@ -20,6 +20,10 @@ pub struct GrantStateParams {
 
 /// Returns a new vestinglib::Vesting instance given the input parameters of the grant and the
 /// last persisted grant state.
+/// # Arguments
+///
+/// * `params` - Used to initialize the vesting schedule
+/// * `state`  - Used to keep track of the current state of the grant
 pub fn get_vesting_instance(params: &GrantInputParams, state: GrantStateParams) -> Result<Vesting> {
     let GrantInputParams {
         cliff_seconds,

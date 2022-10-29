@@ -2,6 +2,7 @@ use anchor_lang::prelude::*;
 
 use crate::utils::GrantInputParams;
 
+/// Stores data about the vesting schedule 
 #[account]
 pub struct Grant {
     pub params: GrantInputParams,

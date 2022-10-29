@@ -7,21 +7,49 @@ function delay(ms: number) {
   return new Promise( resolve => setTimeout(resolve, ms) );
 }
 
+// Tests to write
+
+// Initialize and revoke
+// Withdraw before cliff
+// Withdraw after cliff
+// Withdraw + Revoke
+
+interface Params {
+  cliffSeconds: anchor.BN
+  durationSeconds: anchor.BN,
+  secondsPerSlice: anchor.BN,
+  startUnix: anchor.BN,
+  grantTokenAmount: anchor.BN,
+}
+
+/*
 describe("token_vesting_program", () => {
   // Configure the client to use the local cluster.
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
-
   const program = anchor.workspace.TokenVestingProgram as Program<TokenVestingProgram>;
 
-  it("Is initialized!", async () => {
-    // Add your test here.
-    const employee = Keypair.generate();
-    console.log(`[ME] ${provider.wallet.publicKey.toBase58()}`);
-    console.log(`[Program] ${program.programId.toBase58()}`);
-    console.log(`[EMPLOYEE] ${employee.publicKey.toBase58()}`);
+  function makeParams(parans: Partial<Params> = {}): Params {
+    const defaultParams: Params = {
+      cliffSeconds: new anchor.BN("31560000"),
+      durationSeconds: new anchor.BN("126240000"),
+      secondsPerSlice: new anchor.BN("1"),
+      startUnix: new anchor.BN("1585181904"),
+      grantTokenAmount: new anchor.BN("100000000"),
+    };
+    return {
+      ...defaultParams,
+      ...parans,
+    }
+  }
 
-    const [grant,] = await PublicKey.findProgramAddress(
+  let employee: Keypair;
+  let grant: PublicKey;
+  let grantCustody: PublicKey;
+  beforeEach(() => {
+    employee = Keypair.generate();
+
+    const [grantProgramAddress,] = await PublicKey.findProgramAddress(
       [
         Buffer.from("grant_account"),
         provider.wallet.publicKey.toBuffer(),
@@ -29,8 +57,7 @@ describe("token_vesting_program", () => {
       ],
       program.programId
     );
-
-    const [grantCustody,] = await PublicKey.findProgramAddress(
+    const [grantCustodyProgramAddress,] = await PublicKey.findProgramAddress(
       [
         Buffer.from("grant_custody"),
         provider.wallet.publicKey.toBuffer(),
@@ -38,9 +65,12 @@ describe("token_vesting_program", () => {
       ],
       program.programId
     );
-    console.log(`[GRANT ACCT] ${grant.toBase58()}`);
-    console.log(`[GRANT CUSTODY] ${grantCustody.toBase58()}`);
+    grant = grantProgramAddress;
+    grantCustody = grantCustodyProgramAddress;
+  })
 
+  it("Grant can be revoked after it is initialized", async () => {
+    const params = makeParams()
     const tx = await program.methods.initialize({
       cliffSeconds: new anchor.BN("31560000"),
       durationSeconds: new anchor.BN("126240000"),
@@ -54,6 +84,17 @@ describe("token_vesting_program", () => {
       grantCustody,
     })
     .rpc({commitment: 'confirmed'});
+  }
+
+  it("Is initialized!", async () => {
+    // Add your test here.
+
+
+
+    console.log(`[GRANT ACCT] ${grant.toBase58()}`);
+    console.log(`[GRANT CUSTODY] ${grantCustody.toBase58()}`);
+
+
 
     const data = await provider.connection.getParsedTransaction(tx, {commitment: 'confirmed'});
     console.log(JSON.stringify(data));
@@ -145,3 +186,4 @@ describe("token_vesting_program", () => {
     // .rpc({commitment: 'confirmed'});
   });
 });
+*/
