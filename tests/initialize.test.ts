@@ -223,6 +223,5 @@ describe("Initialize", () => {
         expect(grantData.bumps.grant).to.not.eql(0);
         expect(grantData.bumps.escrowAuthority).to.not.eql(0);
         expect(grantData.bumps.escrowTokenAccount).to.not.eql(0);
-        expect(grantData.grantCustodyBump).to.not.eql(0);
     });
 });
