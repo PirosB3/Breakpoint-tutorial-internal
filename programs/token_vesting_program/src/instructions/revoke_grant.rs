@@ -22,6 +22,7 @@ pub struct RevokeGrant<'info> {
     // PDAs section
     // 👇 👇 👇 👇 👇
     #[account(
+        mut,
         seeds = [b"grant", employer.key().as_ref(), employee.key().as_ref()],
         bump = grant.bumps.grant,
         constraint = grant.initialized == true,
@@ -35,6 +36,7 @@ pub struct RevokeGrant<'info> {
     /// CHECK: The account is a PDA and does not read/write data
     escrow_authority: AccountInfo<'info>,
     #[account(
+        mut,
         token::mint=grant.mint,
         token::authority=escrow_authority,
         seeds = [b"tokens", grant.key().as_ref()],

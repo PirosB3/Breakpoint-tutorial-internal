@@ -10,52 +10,7 @@ import { TokenVestingProgram } from "../target/types/token_vesting_program";
 import moment from "moment";
 import * as spl from '@solana/spl-token';
 import { expect } from "chai";
-
-const stepAmount =  moment().add(1, 'day');
-const ONE_DAY_IN_SECONDS = stepAmount.diff(moment(), 'seconds');
-
-function delay(ms: number) {
-  return new Promise( resolve => setTimeout(resolve, ms) );
-}
-
-interface Params {
-  cliffSeconds: anchor.BN
-  durationSeconds: anchor.BN,
-  secondsPerSlice: anchor.BN,
-  startUnix: anchor.BN,
-  grantTokenAmount: anchor.BN,
-}
-
-interface ParsedTokenTransfer {
-    amount: string,
-    authority: string,
-    destination: string,
-    source: string
-}
-
-interface PDAAccounts {
-    grant: PublicKey;
-    escrowAuthority: PublicKey;
-    escrowTokenAccount: PublicKey;
-}
-
-export function makeParams(startTime: string, cliffMonths: number, vestingYears: number, stepFunctionSeconds: number, grantTokenAmountInSol: string ): Params {
-    const grantTokenAmount = new anchor.BN(grantTokenAmountInSol).mul(new anchor.BN(LAMPORTS_PER_SOL));
-    const current = moment(startTime, 'YYYY-MM-DD');
-    const vestingCliff = current.clone().add(cliffMonths, 'months');
-    const vestingDuration = current.clone().add(vestingYears, 'years');
-    return {
-        startUnix: new anchor.BN(current.unix()),
-        durationSeconds: new anchor.BN(vestingDuration.unix()),
-        cliffSeconds: new anchor.BN(vestingCliff.unix()),
-        grantTokenAmount,
-        secondsPerSlice: new anchor.BN(stepFunctionSeconds),
-    }
-}
-
-const COMMITMENT: {commitment: Finality} = {commitment: 'confirmed'};
-
-
+import { COMMITMENT, PDAAccounts, makeParams, ONE_DAY_IN_SECONDS, ParsedTokenTransfer, createMint, createTokenAccount, getPDAs } from "./utils";
 describe("Initialize", () => {
     // Configure the client to use the local cluster.
     const provider = anchor.AnchorProvider.env();
@@ -63,115 +18,17 @@ describe("Initialize", () => {
     const { connection } = provider;
     const program = anchor.workspace.TokenVestingProgram as Program<TokenVestingProgram>;
 
-    const createTokenAccount = async (user: anchor.web3.PublicKey, mint: anchor.web3.PublicKey, fundingAmount?: number): Promise<anchor.web3.PublicKey> => {
-        const userAssociatedTokenAccount = await spl.Token.getAssociatedTokenAddress(
-            spl.ASSOCIATED_TOKEN_PROGRAM_ID,
-            spl.TOKEN_PROGRAM_ID,
-            mint,
-            user,
-        )
-
-        // Fund user with some SOL
-        let txFund = new anchor.web3.Transaction();
-        if (user.toBase58() !== provider.wallet.publicKey.toBase58()) {
-            txFund.add(anchor.web3.SystemProgram.transfer({
-                fromPubkey: provider.wallet.publicKey,
-                toPubkey: user,
-                lamports: 5 * anchor.web3.LAMPORTS_PER_SOL,
-            }));
-        }
-        txFund.add(spl.Token.createAssociatedTokenAccountInstruction(
-            spl.ASSOCIATED_TOKEN_PROGRAM_ID,
-            spl.TOKEN_PROGRAM_ID,
-            mint,
-            userAssociatedTokenAccount,
-            user,
-            provider.wallet.publicKey,
-        ))
-        if (fundingAmount !== undefined) {
-            txFund.add(spl.Token.createMintToInstruction(
-                spl.TOKEN_PROGRAM_ID,
-                mint,
-                userAssociatedTokenAccount,
-                provider.wallet.publicKey,
-                [],
-                fundingAmount,
-            ));
-        }
-
-        const txFundTokenSig = await provider.sendAndConfirm(txFund, [], COMMITMENT);
-        console.log(JSON.stringify(await connection.getParsedAccountInfo(userAssociatedTokenAccount)));
-        console.log(`[${userAssociatedTokenAccount.toBase58()}] New associated account for mint ${mint.toBase58()}: ${txFundTokenSig}`);
-        return userAssociatedTokenAccount;
-    }
-
-    const createMint = async (): Promise<anchor.web3.PublicKey> => {
-        const tokenMint = new anchor.web3.Keypair();
-        const lamportsForMint = await provider.connection.getMinimumBalanceForRentExemption(spl.MintLayout.span);
-        let tx = new anchor.web3.Transaction();
-
-        // Allocate mint
-        tx.add(
-            anchor.web3.SystemProgram.createAccount({
-                programId: spl.TOKEN_PROGRAM_ID,
-                space: spl.MintLayout.span,
-                fromPubkey: provider.wallet.publicKey,
-                newAccountPubkey: tokenMint.publicKey,
-                lamports: lamportsForMint,
-            })
-        )
-        // Allocate wallet account
-        tx.add(
-            spl.Token.createInitMintInstruction(
-                spl.TOKEN_PROGRAM_ID,
-                tokenMint.publicKey,
-                9,
-                provider.wallet.publicKey,
-                provider.wallet.publicKey,
-            )
-        );
-        const signature = await provider.sendAndConfirm(tx, [tokenMint], COMMITMENT);
-
-        console.log(`[${tokenMint.publicKey}] Created new mint account at ${signature}`);
-        return tokenMint.publicKey;
-    }
-
-    const getPDAs = async (params: {employee: PublicKey, employer: PublicKey}): Promise<PDAAccounts> => {
-        const [grant,] = await PublicKey.findProgramAddress(
-            [
-                Buffer.from("grant"),
-                params.employer.toBuffer(),
-                params.employee.toBuffer(),
-            ],
-            program.programId
-        );
-        const [escrowAuthority,] = await PublicKey.findProgramAddress(
-            [
-                Buffer.from("authority"),
-                grant.toBuffer(),
-            ],
-            program.programId
-        );
-        const [escrowTokenAccount,] = await PublicKey.findProgramAddress(
-            [
-                Buffer.from("tokens"),
-                grant.toBuffer(),
-            ],
-            program.programId
-        );
-        return {
-            grant,
-            escrowAuthority,
-            escrowTokenAccount,
-        }
-    }
 
     it('correctly initializes a new account and transfers the funds', async () => {
         const employer = provider.wallet.publicKey;
         const employee = Keypair.generate().publicKey;
-        const { grant, escrowAuthority, escrowTokenAccount } = await getPDAs({employer, employee});
-        const mint = await createMint();
-        const employerAccount = await createTokenAccount(provider.wallet.publicKey, mint, 100_000 * LAMPORTS_PER_SOL);
+        const { grant, escrowAuthority, escrowTokenAccount } = await getPDAs({
+          employer,
+          employee,
+          programId: program.programId,
+        });
+        const mint = await createMint(provider);
+        const employerAccount = await createTokenAccount(provider, provider.wallet.publicKey, mint, 100_000 * LAMPORTS_PER_SOL);
 
         const params = makeParams('2020-01-01', 6, 4, ONE_DAY_IN_SECONDS, '10');
         const initializeTransaction = await program.methods

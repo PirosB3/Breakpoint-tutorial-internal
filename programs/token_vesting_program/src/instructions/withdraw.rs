@@ -20,6 +20,7 @@ pub struct WithdrawGrant<'info> {
     // PDAs section
     // 👇 👇 👇 👇 👇
     #[account(
+        mut,
         seeds = [b"grant", employer.key().as_ref(), employee.key().as_ref()],
         bump = grant.bumps.grant,
         constraint = grant.initialized == true,
@@ -33,6 +34,7 @@ pub struct WithdrawGrant<'info> {
     /// CHECK: The account is a PDA and does not read/write data
     escrow_authority: AccountInfo<'info>,
     #[account(
+        mut,
         token::mint=grant.mint,
         token::authority=escrow_authority,
         seeds = [b"tokens", grant.key().as_ref()],
@@ -92,17 +94,16 @@ impl<'info> WithdrawGrant<'info> {
                     authority: self.escrow_authority.to_account_info(),
                 })
                 .with_signer(&[&[
-                    b"grant_custody",
-                    self.employer.key().as_ref(),
-                    self.employee.key().as_ref(),
+                    b"authority",
+                    self.grant.key().as_ref(),
                     &[self.grant.bumps.escrow_authority],
                 ]]),
                 releasable_amount,
             )?;
-
             // Transfer was successful, update persistent state to account for the funds already released.
             let data = &mut self.grant;
-            data.already_issued_token_amount += releasable_amount;
+            data.already_issued_token_amount = data.already_issued_token_amount + releasable_amount;
+            msg!("OUT -> {}", data.already_issued_token_amount);
         }
         Ok(())
     }
