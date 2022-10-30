@@ -3,12 +3,6 @@ import {
   Keypair,
   PublicKey,
   LAMPORTS_PER_SOL,
-  Transaction,
-  VersionedTransaction,
-  MessageV0,
-  TransactionMessage,
-  SystemProgram,
-  ConfirmOptions,
   Finality,
 } from "@solana/web3.js";
 import { Program } from "@project-serum/anchor";
@@ -172,10 +166,6 @@ describe("Initialize", () => {
         }
     }
 
-    beforeEach(async () => {
-        const employeeKeypair = Keypair.generate();
-    })
-
     it('correctly initializes a new account and transfers the funds', async () => {
         const employer = provider.wallet.publicKey;
         const employee = Keypair.generate().publicKey;
@@ -184,7 +174,6 @@ describe("Initialize", () => {
         const employerFundingAccount = await createTokenAccount(provider.wallet.publicKey, mint, 100_000 * LAMPORTS_PER_SOL);
 
         const params = makeParams('2020-01-01', 6, 4, ONE_DAY_IN_SECONDS, '10');
-        console.log(mint.toBase58());
         const initializeTransaction = await program.methods
             .initialize(params)
             .accounts({
@@ -203,8 +192,6 @@ describe("Initialize", () => {
           initializeTransaction,
           COMMITMENT,
         );
-        // console.log(JSON.stringify(tx));
-        const totalTransfer = params.grantTokenAmount;
         
         // Ensure that inner transfer succeded.
         const transferIx: any = tx.meta.innerInstructions[0].instructions.find(
@@ -218,7 +205,7 @@ describe("Initialize", () => {
             source: employerFundingAccount.toBase58()
         });
 
-        // // Check data in the 
+        // Check data
         const grantData = await program.account.grant.fetch(grant);
         expect(grantData.employee.toBase58()).to.eq(employee.toBase58());
         expect(grantData.employer.toBase58()).to.eq(employer.toBase58());
@@ -238,6 +225,4 @@ describe("Initialize", () => {
         expect(grantData.bumps.escrowTokenAccount).to.not.eql(0);
         expect(grantData.grantCustodyBump).to.not.eql(0);
     });
-
-    // Reverts if funds are unavailable
 });
