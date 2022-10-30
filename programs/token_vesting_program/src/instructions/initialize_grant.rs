@@ -1,39 +1,56 @@
 use anchor_lang::prelude::*;
-use anchor_lang::system_program::Transfer;
+use anchor_spl::token::{Mint, TokenAccount, Token, Transfer, transfer};
 
-use crate::account_data::Grant;
+use crate::account_data::{Grant, Bumps};
 use crate::utils::{get_vesting_instance, GrantInputParams, GrantStateParams};
 
 #[derive(Accounts)]
 pub struct InitializeNewGrant<'info> {
+    // System accounts (controlled by private keys or PDAs)
     #[account(mut)]
     employer: Signer<'info>,
+    #[account(constraint = mint.is_initialized == true)]
+    mint: Account<'info, Mint>,
+    #[account(
+        mut,
+        token::mint=mint,
+        token::authority=employer,
+    )]
+    employer_funding_account: Account<'info, TokenAccount>,
+
     /// CHECK: The account should just be the public key of whoever we want to give the grant to
     employee: AccountInfo<'info>,
 
+    // State accounts (created and owned by this program)
     #[account(
         init,
         payer = employer,
         space = Grant::MAX_SIZE,
-        seeds = [b"grant_account", employer.key().as_ref(), employee.key().as_ref()], bump
+        seeds = [b"grant", employer.key().as_ref(), employee.key().as_ref()], bump
     )]
     grant: Account<'info, Grant>,
-
     #[account(
-        mut,
-        seeds = [b"grant_custody", employer.key().as_ref(), employee.key().as_ref()], bump
+        seeds = [b"authority", grant.key().as_ref()], bump
     )]
     /// CHECK: The account is a PDA and does not read/write data
-    grant_custody: AccountInfo<'info>,
+    escrow_authority: AccountInfo<'info>,
 
+    // Token accounts
+    #[account(
+        init,
+        payer = employer,
+        token::mint=mint,
+        token::authority=escrow_authority,
+        seeds = [b"tokens", grant.key().as_ref()], bump
+    )]
+    escrow_token_account: Account<'info, TokenAccount>,
+
+    // Programs
+    token_program: Program<'info, Token>,
     system_program: Program<'info, System>,
     rent: Sysvar<'info, Rent>,
 }
 
-pub struct Bumps {
-    pub grant_bump: u8,
-    pub grant_custody_bump: u8,
-}
 
 /// This is the first instruction called by the employer when they want to set up a new vesting grant.
 /// This instruction will set up the vesting schedule, validate the parameters, and transfer the total
@@ -58,23 +75,19 @@ impl<'info> InitializeNewGrant<'info> {
             },
         )?;
 
-        let amount_to_transfer = {
-            // Compute rent for an account of 0 bytes. Rent is still paid for accounts that store SOL.
-            let min_rent = self.rent.minimum_balance(0);
-            min_rent + params.grant_token_amount
-        };
-
         // Transfer SOL from the employer to the escrow account (specifically for this employee) based on the input parameters
         //
         // Example: Total grant is 7000 SOL
         // Employer -> 7000 SOL -> Grant Custody
         //
         // NOTE: Writing to a new account requires us to pay rent for that account (even if no bytes are written).
+        let amount_to_transfer = params.grant_token_amount;
         let context = self.system_program_context(Transfer {
-            from: self.employer.to_account_info(),
-            to: self.grant_custody.to_account_info(),
+            from: self.employer_funding_account.to_account_info(),
+            to: self.escrow_token_account.to_account_info(),
+            authority: self.employer.to_account_info(),
         });
-        anchor_lang::system_program::transfer(context, amount_to_transfer)?;
+        transfer(context, amount_to_transfer)?;
 
         // Transfer was successful - let's store the grant terms (and other important info we want to persist) in to the memory of grant_account.
         let grant_account = &mut self.grant;
@@ -84,8 +97,8 @@ impl<'info> InitializeNewGrant<'info> {
         grant_account.initialized = true;
         grant_account.employee = self.employee.key();
         grant_account.employer = self.employer.key();
-        grant_account.bump = bumps.grant_bump;
-        grant_account.grant_custody_bump = bumps.grant_custody_bump;
+        grant_account.mint = self.mint.key();
+        grant_account.bumps = bumps;
         Ok(())
     }
 }

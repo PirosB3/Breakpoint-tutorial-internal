@@ -24,16 +24,20 @@ pub struct Res {
 
 #[program]
 pub mod token_vesting_program {
+    use crate::account_data::Bumps;
+
     use super::*;
 
     pub fn initialize(ctx: Context<InitializeNewGrant>, params: GrantInputParams) -> Result<()> {
         let grant_bump = *ctx.bumps.get("grant").unwrap();
-        let grant_custody_bump = *ctx.bumps.get("grant_custody").unwrap();
+        let escrow_authority_bump = *ctx.bumps.get("escrow_authority").unwrap();
+        let escrow_token_account_bump = *ctx.bumps.get("escrow_token_account").unwrap();
         ctx.accounts.handle(
             params,
             Bumps {
-                grant_bump,
-                grant_custody_bump,
+                grant: grant_bump,
+                escrow_authority: escrow_authority_bump,
+                escrow_token_account: escrow_token_account_bump,
             },
         )
     }
