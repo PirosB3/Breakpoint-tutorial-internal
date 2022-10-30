@@ -171,7 +171,7 @@ describe("Initialize", () => {
         const employee = Keypair.generate().publicKey;
         const { grant, escrowAuthority, escrowTokenAccount } = await getPDAs({employer, employee});
         const mint = await createMint();
-        const employerFundingAccount = await createTokenAccount(provider.wallet.publicKey, mint, 100_000 * LAMPORTS_PER_SOL);
+        const employerAccount = await createTokenAccount(provider.wallet.publicKey, mint, 100_000 * LAMPORTS_PER_SOL);
 
         const params = makeParams('2020-01-01', 6, 4, ONE_DAY_IN_SECONDS, '10');
         const initializeTransaction = await program.methods
@@ -183,7 +183,7 @@ describe("Initialize", () => {
                 escrowAuthority,
                 escrowTokenAccount,
                 mint,
-                employerFundingAccount,
+                employerAccount,
             })
             .rpc(COMMITMENT);
         console.log(`[Initialize] ${initializeTransaction}`);
@@ -202,7 +202,7 @@ describe("Initialize", () => {
             amount: params.grantTokenAmount.toString(),
             authority: employer.toBase58(),
             destination: escrowTokenAccount.toBase58(),
-            source: employerFundingAccount.toBase58()
+            source: employerAccount.toBase58()
         });
 
         // Check data

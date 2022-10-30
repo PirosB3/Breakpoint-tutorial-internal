@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{Mint, TokenAccount, Token, Transfer, transfer};
+use anchor_spl::token::{TokenAccount, Token, Transfer, transfer};
 use vestinglib::GetReleasableAmountParams;
 
 use crate::account_data::Grant;
@@ -7,17 +7,16 @@ use crate::utils::{get_vesting_instance, GrantStateParams};
 
 #[derive(Accounts)]
 pub struct WithdrawGrant<'info> {
+    // external accounts section
+    // 👇 👇 👇 👇 👇
     employee: Signer<'info>,
-   /// CHECK: account is not mutable and does not contain state
+    /// CHECK: account is not mutable and does not contain state
     employer: AccountInfo<'info>,
-
-    #[account(constraint = mint.is_initialized == true)]
-    mint: Account<'info, Mint>,
-    #[account(mut, token::mint=mint, token::authority=employee)]
+    #[account(mut, token::mint=grant.mint, token::authority=employee)]
     employee_account: Account<'info, TokenAccount>,
 
-
-    // State accounts (created and owned by this program)
+    // PDAs section
+    // 👇 👇 👇 👇 👇
     #[account(
         seeds = [b"grant", employer.key().as_ref(), employee.key().as_ref()],
         bump = grant.bumps.grant,
@@ -31,10 +30,8 @@ pub struct WithdrawGrant<'info> {
     )]
     /// CHECK: The account is a PDA and does not read/write data
     escrow_authority: AccountInfo<'info>,
-
-    // Token accounts
     #[account(
-        token::mint=mint,
+        token::mint=grant.mint,
         token::authority=escrow_authority,
         seeds = [b"tokens", grant.key().as_ref()],
         bump = grant.bumps.escrow_token_account

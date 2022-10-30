@@ -6,22 +6,19 @@ use crate::utils::{get_vesting_instance, GrantInputParams, GrantStateParams};
 
 #[derive(Accounts)]
 pub struct InitializeNewGrant<'info> {
-    // System accounts (controlled by private keys or PDAs)
+    // external accounts section
+    // 👇 👇 👇 👇 👇
     #[account(mut)]
     employer: Signer<'info>,
-    #[account(constraint = mint.is_initialized == true)]
-    mint: Account<'info, Mint>,
-    #[account(
-        mut,
-        token::mint=mint,
-        token::authority=employer,
-    )]
-    employer_funding_account: Account<'info, TokenAccount>,
-
     /// CHECK: The account should just be the public key of whoever we want to give the grant to
     employee: AccountInfo<'info>,
+    #[account(constraint = mint.is_initialized == true)]
+    mint: Account<'info, Mint>,
+    #[account(mut, token::mint=mint, token::authority=employer)]
+    employer_account: Account<'info, TokenAccount>,
 
-    // State accounts (created and owned by this program)
+    // PDAs section
+    // 👇 👇 👇 👇 👇
     #[account(
         init,
         payer = employer,
@@ -34,8 +31,6 @@ pub struct InitializeNewGrant<'info> {
     )]
     /// CHECK: The account is a PDA and does not read/write data
     escrow_authority: AccountInfo<'info>,
-
-    // Token accounts
     #[account(
         init,
         payer = employer,
@@ -45,7 +40,8 @@ pub struct InitializeNewGrant<'info> {
     )]
     escrow_token_account: Account<'info, TokenAccount>,
 
-    // Programs
+    // Programs section
+    // 👇 👇 👇 👇 👇
     token_program: Program<'info, Token>,
     system_program: Program<'info, System>,
     rent: Sysvar<'info, Rent>,
@@ -83,7 +79,7 @@ impl<'info> InitializeNewGrant<'info> {
         // NOTE: Writing to a new account requires us to pay rent for that account (even if no bytes are written).
         let amount_to_transfer = params.grant_token_amount;
         let context = self.system_program_context(Transfer {
-            from: self.employer_funding_account.to_account_info(),
+            from: self.employer_account.to_account_info(),
             to: self.escrow_token_account.to_account_info(),
             authority: self.employer.to_account_info(),
         });
