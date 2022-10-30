@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{TokenAccount, Token, Transfer, transfer};
+use anchor_spl::token::{transfer, Token, TokenAccount, Transfer};
 use vestinglib::GetReleasableAmountParams;
 
 use crate::account_data::Grant;
@@ -9,8 +9,10 @@ use crate::utils::{get_vesting_instance, GrantStateParams};
 pub struct WithdrawGrant<'info> {
     // external accounts section
     // 👇 👇 👇 👇 👇
+    #[account(constraint = employee.key() == grant.employee)]
     employee: Signer<'info>,
     /// CHECK: account is not mutable and does not contain state
+    #[account(constraint = employer.key() == grant.employer)]
     employer: AccountInfo<'info>,
     #[account(mut, token::mint=grant.mint, token::authority=employee)]
     employee_account: Account<'info, TokenAccount>,

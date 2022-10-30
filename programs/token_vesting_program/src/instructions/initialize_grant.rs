@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{Mint, TokenAccount, Token, Transfer, transfer};
+use anchor_spl::token::{transfer, Mint, Token, TokenAccount, Transfer};
 
-use crate::account_data::{Grant, Bumps};
+use crate::account_data::{Bumps, Grant};
 use crate::utils::{get_vesting_instance, GrantInputParams, GrantStateParams};
 
 #[derive(Accounts)]
@@ -46,7 +46,6 @@ pub struct InitializeNewGrant<'info> {
     system_program: Program<'info, System>,
     rent: Sysvar<'info, Rent>,
 }
-
 
 /// This is the first instruction called by the employer when they want to set up a new vesting grant.
 /// This instruction will set up the vesting schedule, validate the parameters, and transfer the total

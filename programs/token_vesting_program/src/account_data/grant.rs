@@ -1,4 +1,4 @@
-use anchor_lang::{prelude::*};
+use anchor_lang::prelude::*;
 
 use crate::utils::GrantInputParams;
 
@@ -9,7 +9,7 @@ pub struct Bumps {
     pub escrow_token_account: u8,
 }
 
-/// Stores data about the vesting schedule 
+/// Stores data about the vesting schedule
 #[account]
 pub struct Grant {
     pub params: GrantInputParams,

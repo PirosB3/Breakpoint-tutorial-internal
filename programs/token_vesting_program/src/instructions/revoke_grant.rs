@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{TokenAccount, Token, Transfer, transfer};
+use anchor_spl::token::{transfer, Token, TokenAccount, Transfer};
 use vestinglib::GetReleasableAmountParams;
 
 use crate::account_data::Grant;
@@ -9,8 +9,10 @@ use crate::utils::{get_vesting_instance, GrantStateParams};
 pub struct RevokeGrant<'info> {
     // External accounts section
     // 👇 👇 👇 👇 👇
+    #[account(constraint = employer.key() == grant.employer)]
     employer: Signer<'info>,
     /// CHECK: account is not mutable and does not contain state
+    #[account(constraint = employee.key() == grant.employee)]
     employee: AccountInfo<'info>,
     #[account(mut, token::mint=grant.mint, token::authority=employer)]
     employer_account: Account<'info, TokenAccount>,
@@ -104,10 +106,10 @@ impl<'info> RevokeGrant<'info> {
         transfer(
             self.token_program_context(send_back_to_employer)
                 .with_signer(&[&[
-                b"authority",
-                self.grant.key().as_ref(),
-                &[self.grant.bumps.escrow_authority],
-            ]]),
+                    b"authority",
+                    self.grant.key().as_ref(),
+                    &[self.grant.bumps.escrow_authority],
+                ]]),
             amount_to_send_back,
         )?;
 

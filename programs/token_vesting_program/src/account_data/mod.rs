@@ -1,2 +1,2 @@
 mod grant;
-pub use grant::{Grant, Bumps};
+pub use grant::{Bumps, Grant};
