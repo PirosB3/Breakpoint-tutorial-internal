@@ -1,45 +1,16 @@
 import * as anchor from "@project-serum/anchor";
-import { Keypair, PublicKey, LAMPORTS_PER_SOL, Transaction, VersionedTransaction, MessageV0, TransactionMessage, SystemProgram } from "@solana/web3.js"
+import {
+  Keypair,
+  PublicKey,
+  LAMPORTS_PER_SOL,
+  Finality,
+} from "@solana/web3.js";
 import { Program } from "@project-serum/anchor";
 import { TokenVestingProgram } from "../target/types/token_vesting_program";
 import moment from "moment";
+import * as spl from '@solana/spl-token';
 import { expect } from "chai";
-
-const stepAmount =  moment().add(1, 'day');
-const ONE_DAY_IN_SECONDS = stepAmount.diff(moment(), 'seconds');
-
-function delay(ms: number) {
-  return new Promise( resolve => setTimeout(resolve, ms) );
-}
-
-interface Params {
-  cliffSeconds: anchor.BN
-  durationSeconds: anchor.BN,
-  secondsPerSlice: anchor.BN,
-  startUnix: anchor.BN,
-  grantTokenAmount: anchor.BN,
-}
-
-interface PDAAccounts {
-    grant: PublicKey;
-    grantCustody: PublicKey;
-}
-
-export function makeParams(startTime: string, cliffMonths: number, vestingYears: number, stepFunctionSeconds: number, grantTokenAmountInSol: string ): Params {
-    const grantTokenAmount = new anchor.BN(grantTokenAmountInSol).mul(new anchor.BN(LAMPORTS_PER_SOL));
-    const current = moment(startTime, 'YYYY-MM-DD');
-    const vestingCliff = current.clone().add(cliffMonths, 'months');
-    const vestingDuration = current.clone().add(vestingYears, 'years');
-    return {
-        startUnix: new anchor.BN(current.unix()),
-        durationSeconds: new anchor.BN(vestingDuration.unix()),
-        cliffSeconds: new anchor.BN(vestingCliff.unix()),
-        grantTokenAmount,
-        secondsPerSlice: new anchor.BN(stepFunctionSeconds),
-    }
-}
-
-
+import { COMMITMENT, PDAAccounts, makeParams, ONE_DAY_IN_SECONDS, ParsedTokenTransfer, createMint, createTokenAccount, getPDAs } from "./utils";
 describe("Initialize", () => {
     // Configure the client to use the local cluster.
     const provider = anchor.AnchorProvider.env();
@@ -47,37 +18,18 @@ describe("Initialize", () => {
     const { connection } = provider;
     const program = anchor.workspace.TokenVestingProgram as Program<TokenVestingProgram>;
 
-    const makeAccounts = async (params: {employee: PublicKey, employer: PublicKey}): Promise<PDAAccounts> => {
-        const [grant,] = await PublicKey.findProgramAddress(
-            [
-                Buffer.from("grant_account"),
-                params.employer.toBuffer(),
-                params.employee.toBuffer(),
-            ],
-            program.programId
-        );
-        const [grantCustody,] = await PublicKey.findProgramAddress(
-            [
-                Buffer.from("grant_custody"),
-                params.employer.toBuffer(),
-                params.employee.toBuffer(),
-            ],
-            program.programId
-        );
-        return {
-            grant,
-            grantCustody,
-        }
-    }
-
-    beforeEach(async () => {
-        const employeeKeypair = Keypair.generate();
-    })
 
     it('correctly initializes a new account and transfers the funds', async () => {
         const employer = provider.wallet.publicKey;
         const employee = Keypair.generate().publicKey;
-        const { grant, grantCustody } = await makeAccounts({employer, employee});
+        const { grant, escrowAuthority, escrowTokenAccount } = await getPDAs({
+          employer,
+          employee,
+          programId: program.programId,
+        });
+        const mint = await createMint(provider);
+        const employerAccount = await createTokenAccount(provider, provider.wallet.publicKey, mint, 100_000 * LAMPORTS_PER_SOL);
+
         const params = makeParams('2020-01-01', 6, 4, ONE_DAY_IN_SECONDS, '10');
         const initializeTransaction = await program.methods
             .initialize(params)
@@ -85,35 +37,32 @@ describe("Initialize", () => {
                 employee,
                 employer,
                 grant,
-                grantCustody
+                escrowAuthority,
+                escrowTokenAccount,
+                mint,
+                employerAccount,
             })
-            .rpc({ commitment: "confirmed" });
+            .rpc(COMMITMENT);
         console.log(`[Initialize] ${initializeTransaction}`);
 
         const tx = await connection.getParsedTransaction(
           initializeTransaction,
-          { commitment: "confirmed" }
+          COMMITMENT,
         );
-        const rent = await connection.getMinimumBalanceForRentExemption(0);
-        const totalTransfer = params.grantTokenAmount.add(new anchor.BN(rent)).toString()
         
         // Ensure that inner transfer succeded.
-        const grantCustodyAcctIdx =
-          tx.transaction.message.accountKeys.findIndex(
-            (acct) =>
-              acct.pubkey.toBase58() ===
-              grantCustody.toBase58()
-          );
-        const grantCustodyDelta = tx.meta.postBalances[grantCustodyAcctIdx] - tx.meta.preBalances[grantCustodyAcctIdx]
-        expect(grantCustodyDelta.toString()).to.eql(totalTransfer);
-        const transferIx = tx.meta.innerInstructions[0].instructions.find(ix => (ix as any).parsed.type === "transfer");
-        expect((transferIx as any).parsed.info).eql({
-            source: employer.toBase58(),
-            destination: grantCustody.toBase58(),
-            lamports: parseInt(totalTransfer),
+        const transferIx: any = tx.meta.innerInstructions[0].instructions.find(
+          ix => (ix as any).parsed.type === "transfer" && ix.programId.toBase58() == spl.TOKEN_PROGRAM_ID.toBase58()
+        );
+        const parsedInfo: ParsedTokenTransfer = transferIx.parsed.info;
+        expect(parsedInfo).eql({
+            amount: params.grantTokenAmount.toString(),
+            authority: employer.toBase58(),
+            destination: escrowTokenAccount.toBase58(),
+            source: employerAccount.toBase58()
         });
 
-        // Check data in the 
+        // Check data
         const grantData = await program.account.grant.fetch(grant);
         expect(grantData.employee.toBase58()).to.eq(employee.toBase58());
         expect(grantData.employer.toBase58()).to.eq(employer.toBase58());
@@ -125,9 +74,11 @@ describe("Initialize", () => {
         expect(grantData.params.durationSeconds.toNumber()).to.eq(params.durationSeconds.toNumber());
         expect(grantData.params.grantTokenAmount.toNumber()).to.eq(params.grantTokenAmount.toNumber());
         expect(grantData.params.secondsPerSlice.toNumber()).to.eq(params.secondsPerSlice.toNumber());
-        expect(grantData.bump).to.not.eql(0);
-        expect(grantData.grantCustodyBump).to.not.eql(0);
+        expect(grantData.mint.toBase58()).to.eql(mint.toBase58())
+        expect(grantData.employer.toBase58()).to.eql(employer.toBase58())
+        expect(grantData.employee.toBase58()).to.eql(employee.toBase58())
+        expect(grantData.bumps.grant).to.not.eql(0);
+        expect(grantData.bumps.escrowAuthority).to.not.eql(0);
+        expect(grantData.bumps.escrowTokenAccount).to.not.eql(0);
     });
-
-    // Reverts if funds are unavailable
 });

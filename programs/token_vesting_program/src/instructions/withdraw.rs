@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_lang::system_program::Transfer;
+use anchor_spl::token::{transfer, Token, TokenAccount, Transfer};
 use vestinglib::GetReleasableAmountParams;
 
 use crate::account_data::Grant;
@@ -7,28 +7,43 @@ use crate::utils::{get_vesting_instance, GrantStateParams};
 
 #[derive(Accounts)]
 pub struct WithdrawGrant<'info> {
-    #[account(mut)]
+    // external accounts section
+    // 👇 👇 👇 👇 👇
+    #[account(constraint = employee.key() == grant.employee)]
     employee: Signer<'info>,
-    /// CHECK: The account should just be the public key of whoever we want to give the grant to
+    /// CHECK: account is not mutable and does not contain state
+    #[account(constraint = employer.key() == grant.employer)]
     employer: AccountInfo<'info>,
+    #[account(mut, token::mint=grant.mint, token::authority=employee)]
+    employee_account: Account<'info, TokenAccount>,
 
+    // PDAs section
+    // 👇 👇 👇 👇 👇
     #[account(
         mut,
-        seeds = [b"grant_account", employer.key().as_ref(), employee.key().as_ref()],
-        bump = grant.bump,
+        seeds = [b"grant", employer.key().as_ref(), employee.key().as_ref()],
+        bump = grant.bumps.grant,
         constraint = grant.initialized == true,
         constraint = grant.revoked == false,
     )]
     grant: Account<'info, Grant>,
-
+    #[account(
+        seeds = [b"authority", grant.key().as_ref()],
+        bump = grant.bumps.escrow_authority
+    )]
+    /// CHECK: The account is a PDA and does not read/write data
+    escrow_authority: AccountInfo<'info>,
     #[account(
         mut,
-        seeds = [b"grant_custody", employer.key().as_ref(), employee.key().as_ref()],
-        bump = grant.grant_custody_bump,
+        token::mint=grant.mint,
+        token::authority=escrow_authority,
+        seeds = [b"tokens", grant.key().as_ref()],
+        bump = grant.bumps.escrow_token_account
     )]
-    /// CHECK: The account is a PDA
-    grant_custody: AccountInfo<'info>,
-    system_program: Program<'info, System>,
+    escrow_token_account: Account<'info, TokenAccount>,
+
+    // Programs
+    token_program: Program<'info, Token>,
 }
 
 /// Is called by the employee whenever they want to withdraw the amount of SOL
@@ -36,11 +51,11 @@ pub struct WithdrawGrant<'info> {
 /// This instruction loads the grant from the stored configuration and transfers
 /// all freeable (vested) SOL to the employee.
 impl<'info> WithdrawGrant<'info> {
-    fn system_program_context<T: ToAccountMetas + ToAccountInfos<'info>>(
+    fn token_program_context<T: ToAccountMetas + ToAccountInfos<'info>>(
         &self,
         data: T,
     ) -> CpiContext<'_, '_, '_, 'info, T> {
-        CpiContext::new(self.system_program.to_account_info(), data)
+        CpiContext::new(self.token_program.to_account_info(), data)
     }
 
     pub fn handle(&mut self) -> Result<()> {
@@ -72,23 +87,23 @@ impl<'info> WithdrawGrant<'info> {
             // To the employee - and Grant Custody is a PDA.
             //
             // Grant Custody -> 1000 SOL -> Employee
-            anchor_lang::system_program::transfer(
-                self.system_program_context(Transfer {
-                    from: self.grant_custody.to_account_info(),
-                    to: self.employee.to_account_info(),
+            transfer(
+                self.token_program_context(Transfer {
+                    from: self.escrow_token_account.to_account_info(),
+                    to: self.employee_account.to_account_info(),
+                    authority: self.escrow_authority.to_account_info(),
                 })
                 .with_signer(&[&[
-                    b"grant_custody",
-                    self.employer.key().as_ref(),
-                    self.employee.key().as_ref(),
-                    &[self.grant.grant_custody_bump],
+                    b"authority",
+                    self.grant.key().as_ref(),
+                    &[self.grant.bumps.escrow_authority],
                 ]]),
                 releasable_amount,
             )?;
-
             // Transfer was successful, update persistent state to account for the funds already released.
             let data = &mut self.grant;
-            data.already_issued_token_amount += releasable_amount;
+            data.already_issued_token_amount = data.already_issued_token_amount + releasable_amount;
+            msg!("OUT -> {}", data.already_issued_token_amount);
         }
         Ok(())
     }
