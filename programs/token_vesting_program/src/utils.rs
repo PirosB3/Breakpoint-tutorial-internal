@@ -4,7 +4,7 @@ use vestinglib::{CanInitialize, Vesting, VestingInitParams};
 
 use crate::TokenVestingError;
 
-#[derive(AnchorDeserialize, AnchorSerialize, Debug, Clone)]
+#[derive(AnchorDeserialize, AnchorSerialize, Debug, Clone, Default)]
 pub struct GrantInputParams {
     pub cliff_seconds: u64,
     pub duration_seconds: u64,

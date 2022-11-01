@@ -11,9 +11,8 @@ pub struct WithdrawGrant<'info> {
     // 👇 👇 👇 👇 👇
     #[account(constraint = employee.key() == grant.employee)]
     employee: Signer<'info>,
-    /// CHECK: account is not mutable and does not contain state
     #[account(constraint = employer.key() == grant.employer)]
-    employer: AccountInfo<'info>,
+    employer: SystemAccount<'info>,
     #[account(mut, token::mint=grant.mint, token::authority=employee)]
     employee_account: Account<'info, TokenAccount>,
 
@@ -31,8 +30,7 @@ pub struct WithdrawGrant<'info> {
         seeds = [b"authority", grant.key().as_ref()],
         bump = grant.bumps.escrow_authority
     )]
-    /// CHECK: The account is a PDA and does not read/write data
-    escrow_authority: AccountInfo<'info>,
+    escrow_authority: SystemAccount<'info>,
     #[account(
         mut,
         token::mint=grant.mint,
@@ -58,6 +56,10 @@ impl<'info> WithdrawGrant<'info> {
         CpiContext::new(self.token_program.to_account_info(), data)
     }
 
+    /// Goal of instruction
+    /// 1) Get releasable amount that can be withdrawn by employee
+    /// 2) Transfer amount to employee-owned token account
+    /// 3) Update state
     pub fn handle(&mut self) -> Result<()> {
         // Load vesting instance from the internal state.
         let vesting = get_vesting_instance(
@@ -82,6 +84,9 @@ impl<'info> WithdrawGrant<'info> {
         msg!("Releasable amount: {}", releasable_amount);
         // Before a grant is permanently terminated, we force the employee
         // to withdraw all the remaining freable (vested) tokens - if any exist.
+
+        // Only the program is able to sign for the PDAs.
+
         if releasable_amount > 0 {
             // In this transfer, we must pass in Signer Seeds - because funds are going from the Grat Custody
             // To the employee - and Grant Custody is a PDA.

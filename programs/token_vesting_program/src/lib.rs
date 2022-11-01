@@ -17,11 +17,6 @@ pub enum TokenVestingError {
     ParamsInvalid,
 }
 
-#[derive(Clone, Copy, Debug, AnchorDeserialize, AnchorSerialize)]
-pub struct Res {
-    pub releasable_amount: u64,
-}
-
 #[program]
 pub mod token_vesting_program {
     use crate::account_data::Bumps;

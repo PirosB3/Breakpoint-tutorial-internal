@@ -35,8 +35,8 @@ describe("Withdraw", () => {
         const employerAccount = await createTokenAccount(provider, provider.wallet.publicKey, mint, 100_000 * LAMPORTS_PER_SOL);
         const employeeAccount = await createTokenAccount(provider, employee, mint);
 
-        const threeYearsAgo = moment().subtract(2, 'years');
-        const params = makeParams(threeYearsAgo, 12, 4, 1, '40000');
+        const twoYearsAgo = moment().subtract(2, 'years');
+        const params = makeParams(twoYearsAgo, 12, 4, 1, '40000');
         console.log(JSON.stringify(params));
         const initializeTransaction = await program.methods
             .initialize(params)
@@ -84,10 +84,8 @@ describe("Withdraw", () => {
         expect(parseInt(result.amount) / LAMPORTS_PER_SOL).lte(expectedAmount + 30);
         console.log(JSON.stringify(result));
 
-
         // Check data
         const grantData = await program.account.grant.fetch(grant, 'confirmed');
         expect(grantData.alreadyIssuedTokenAmount.toString()).to.eq(result.amount);
-
     });
 });

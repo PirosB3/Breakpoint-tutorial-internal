@@ -1,13 +1,10 @@
 import * as anchor from "@project-serum/anchor";
 import {
   Keypair,
-  PublicKey,
   LAMPORTS_PER_SOL,
-  Finality,
 } from "@solana/web3.js";
 import { Program } from "@project-serum/anchor";
 import { TokenVestingProgram } from "../target/types/token_vesting_program";
-import moment from "moment";
 import * as spl from '@solana/spl-token';
 import { expect } from "chai";
 import { COMMITMENT, PDAAccounts, makeParams, ONE_DAY_IN_SECONDS, ParsedTokenTransfer, createMint, createTokenAccount, getPDAs } from "./utils";
@@ -17,7 +14,6 @@ describe("Initialize", () => {
     anchor.setProvider(provider);
     const { connection } = provider;
     const program = anchor.workspace.TokenVestingProgram as Program<TokenVestingProgram>;
-
 
     it('correctly initializes a new account and transfers the funds', async () => {
         const employer = provider.wallet.publicKey;
@@ -30,7 +26,7 @@ describe("Initialize", () => {
         const mint = await createMint(provider);
         const employerAccount = await createTokenAccount(provider, provider.wallet.publicKey, mint, 100_000 * LAMPORTS_PER_SOL);
 
-        const params = makeParams('2020-01-01', 6, 4, ONE_DAY_IN_SECONDS, '10');
+        let params = makeParams('2020-01-01', 6, 4, ONE_DAY_IN_SECONDS, '10');
         const initializeTransaction = await program.methods
             .initialize(params)
             .accounts({
@@ -64,7 +60,6 @@ describe("Initialize", () => {
 
         // Check data
         const grantData = await program.account.grant.fetch(grant);
-        expect(grantData.employee.toBase58()).to.eq(employee.toBase58());
         expect(grantData.employer.toBase58()).to.eq(employer.toBase58());
         expect(grantData.initialized).to.eq(true);
         expect(grantData.revoked).to.eq(false);
