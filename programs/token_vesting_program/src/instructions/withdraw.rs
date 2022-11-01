@@ -20,14 +20,14 @@ pub struct WithdrawGrant<'info> {
     // 👇 👇 👇 👇 👇
     #[account(
         mut,
-        seeds = [b"grant", employer.key().as_ref(), employee.key().as_ref()],
+        seeds = [b"grant".as_ref(), employer.key().as_ref(), employee.key().as_ref()],
         bump = grant.bumps.grant,
         constraint = grant.initialized == true,
         constraint = grant.revoked == false,
     )]
     grant: Account<'info, Grant>,
     #[account(
-        seeds = [b"authority", grant.key().as_ref()],
+        seeds = [b"authority".as_ref(), grant.key().as_ref()],
         bump = grant.bumps.escrow_authority
     )]
     escrow_authority: SystemAccount<'info>,
@@ -35,7 +35,7 @@ pub struct WithdrawGrant<'info> {
         mut,
         token::mint=grant.mint,
         token::authority=escrow_authority,
-        seeds = [b"tokens", grant.key().as_ref()],
+        seeds = [b"tokens".as_ref(), grant.key().as_ref()],
         bump = grant.bumps.escrow_token_account
     )]
     escrow_token_account: Account<'info, TokenAccount>,

@@ -18,11 +18,6 @@ describe("Initialize", () => {
     it('correctly initializes a new account and transfers the funds', async () => {
         const employer = provider.wallet.publicKey;
         const employee = Keypair.generate().publicKey;
-        const { grant, escrowAuthority, escrowTokenAccount } = await getPDAs({
-          employer,
-          employee,
-          programId: program.programId,
-        });
         const mint = await createMint(provider);
         const employerAccount = await createTokenAccount(provider, provider.wallet.publicKey, mint, 100_000 * LAMPORTS_PER_SOL);
 
@@ -32,9 +27,6 @@ describe("Initialize", () => {
             .accounts({
                 employee,
                 employer,
-                grant,
-                escrowAuthority,
-                escrowTokenAccount,
                 mint,
                 employerAccount,
             })
@@ -47,6 +39,11 @@ describe("Initialize", () => {
         );
         
         // Ensure that inner transfer succeded.
+        const { grant, escrowTokenAccount } = await getPDAs({
+          employer,
+          employee,
+          programId: program.programId,
+        });
         const transferIx: any = tx.meta.innerInstructions[0].instructions.find(
           ix => (ix as any).parsed.type === "transfer" && ix.programId.toBase58() == spl.TOKEN_PROGRAM_ID.toBase58()
         );

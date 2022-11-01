@@ -23,11 +23,11 @@ pub struct InitializeNewGrant<'info> {
         init,
         payer = employer,
         space = Grant::MAX_SIZE,
-        seeds = [b"grant", employer.key().as_ref(), employee.key().as_ref()], bump
+        seeds = [b"grant".as_ref(), employer.key().as_ref(), employee.key().as_ref()], bump
     )]
     grant: Account<'info, Grant>,
     #[account(
-        seeds = [b"authority", grant.key().as_ref()], bump
+        seeds = [b"authority".as_ref(), grant.key().as_ref()], bump
     )]
     escrow_authority: SystemAccount<'info>,
     #[account(
@@ -35,7 +35,7 @@ pub struct InitializeNewGrant<'info> {
         payer = employer,
         token::mint=mint,
         token::authority=escrow_authority,
-        seeds = [b"tokens", grant.key().as_ref()], bump
+        seeds = [b"tokens".as_ref(), grant.key().as_ref()], bump
     )]
     escrow_token_account: Account<'info, TokenAccount>,
 

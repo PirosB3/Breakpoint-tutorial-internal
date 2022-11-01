@@ -22,7 +22,7 @@ pub struct RevokeGrant<'info> {
     // 👇 👇 👇 👇 👇
     #[account(
         mut,
-        seeds = [b"grant", employer.key().as_ref(), employee.key().as_ref()],
+        seeds = [b"grant".as_ref(), employer.key().as_ref(), employee.key().as_ref()],
         bump = grant.bumps.grant,
         constraint = grant.initialized == true,
         constraint = grant.revoked == false,
@@ -30,7 +30,7 @@ pub struct RevokeGrant<'info> {
     // Grant account allows Vesting program to read/write state
     grant: Account<'info, Grant>,
     #[account(
-        seeds = [b"authority", grant.key().as_ref()],
+        seeds = [b"authority".as_ref(), grant.key().as_ref()],
         bump = grant.bumps.escrow_authority
     )]
     // Escrow token account authority a system account PDA
@@ -40,7 +40,7 @@ pub struct RevokeGrant<'info> {
         mut,
         token::mint=grant.mint,
         token::authority=escrow_authority,
-        seeds = [b"tokens", grant.key().as_ref()],
+        seeds = [b"tokens".as_ref(), grant.key().as_ref()],
         bump = grant.bumps.escrow_token_account
     )]
     escrow_token_account: Account<'info, TokenAccount>,
