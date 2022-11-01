@@ -59,6 +59,12 @@ impl<'info> InitializeNewGrant<'info> {
     }
 
     pub fn handle(&mut self, params: GrantInputParams, bumps: Bumps) -> Result<()> {
+
+        // Quick check to ensure grant token amount is greater than 0
+        // if params.grant_token_amount == 0 {
+        //     return err!(TokenVestingError::EmployerNGMI);
+        // }
+
         // Load vesting instance from params passed in to the instruction.
         // If there is an error in the parameters, an error will be returned and
         // program will exit.

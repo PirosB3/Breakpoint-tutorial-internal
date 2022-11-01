@@ -15,6 +15,8 @@ declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 pub enum TokenVestingError {
     #[msg("Grant input parameters invalid")]
     ParamsInvalid,
+    #[msg("Employer put a 0 token grant! call the union!")]
+    EmployerNGMI,
 }
 
 #[program]

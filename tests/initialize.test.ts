@@ -8,6 +8,7 @@ import { TokenVestingProgram } from "../target/types/token_vesting_program";
 import * as spl from '@solana/spl-token';
 import { expect } from "chai";
 import { COMMITMENT, PDAAccounts, makeParams, ONE_DAY_IN_SECONDS, ParsedTokenTransfer, createMint, createTokenAccount, getPDAs } from "./utils";
+// import { BN } from "bn.js";
 describe("Initialize", () => {
     // Configure the client to use the local cluster.
     const provider = anchor.AnchorProvider.env();
@@ -22,6 +23,8 @@ describe("Initialize", () => {
         const employerAccount = await createTokenAccount(provider, provider.wallet.publicKey, mint, 100_000 * LAMPORTS_PER_SOL);
 
         let params = makeParams('2020-01-01', 6, 4, ONE_DAY_IN_SECONDS, '10');
+        // params.grantTokenAmount = new anchor.BN(0);
+
         const initializeTransaction = await program.methods
             .initialize(params)
             .accounts({
