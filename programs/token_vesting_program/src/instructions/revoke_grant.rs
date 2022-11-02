@@ -11,9 +11,8 @@ pub struct RevokeGrant<'info> {
     // 👇 👇 👇 👇 👇
     #[account(constraint = employer.key() == grant.employer)]
     employer: Signer<'info>,
-    /// CHECK: account is not mutable and does not contain state
     #[account(constraint = employee.key() == grant.employee)]
-    employee: AccountInfo<'info>,
+    employee: SystemAccount<'info>,
     #[account(mut, token::mint=grant.mint, token::authority=employer)]
     employer_account: Account<'info, TokenAccount>,
     #[account(mut, token::mint=grant.mint, token::authority=employee)]
@@ -23,23 +22,25 @@ pub struct RevokeGrant<'info> {
     // 👇 👇 👇 👇 👇
     #[account(
         mut,
-        seeds = [b"grant", employer.key().as_ref(), employee.key().as_ref()],
+        seeds = [b"grant".as_ref(), employer.key().as_ref(), employee.key().as_ref()],
         bump = grant.bumps.grant,
         constraint = grant.initialized == true,
         constraint = grant.revoked == false,
     )]
+    // Grant account allows Vesting program to read/write state
     grant: Account<'info, Grant>,
     #[account(
-        seeds = [b"authority", grant.key().as_ref()],
+        seeds = [b"authority".as_ref(), grant.key().as_ref()],
         bump = grant.bumps.escrow_authority
     )]
-    /// CHECK: The account is a PDA and does not read/write data
-    escrow_authority: AccountInfo<'info>,
+    // Escrow token account authority a system account PDA
+    // Only this program can sign using that account
+    escrow_authority: SystemAccount<'info>,
     #[account(
         mut,
         token::mint=grant.mint,
         token::authority=escrow_authority,
-        seeds = [b"tokens", grant.key().as_ref()],
+        seeds = [b"tokens".as_ref(), grant.key().as_ref()],
         bump = grant.bumps.escrow_token_account
     )]
     escrow_token_account: Account<'info, TokenAccount>,
@@ -49,8 +50,12 @@ pub struct RevokeGrant<'info> {
     token_program: Program<'info, Token>,
 }
 
-/// This instruction is called by the employer when an employee leaves the companty (and the grant is revoked).
-/// When this is called, we pay out all releasable amount to the employee, and refund the rest back to th employer.
+/// This instruction is called by the employer when an employee leaves the company (and the grant is revoked).
+///
+/// Goal of instruction
+/// 1) Pay out all releasable amount to the employee
+/// 2) Refund the rest back to th employer
+/// 3) Update state
 impl<'info> RevokeGrant<'info> {
     fn token_program_context<T: ToAccountMetas + ToAccountInfos<'info>>(
         &self,

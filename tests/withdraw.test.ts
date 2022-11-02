@@ -26,26 +26,18 @@ describe("Withdraw", () => {
         const employer = provider.wallet.publicKey;
         const employeeKeypair = Keypair.generate();
         const employee = employeeKeypair.publicKey;
-        const { grant, escrowAuthority, escrowTokenAccount } = await getPDAs({
-          employer,
-          employee,
-          programId: program.programId,
-        });
         const mint = await createMint(provider);
         const employerAccount = await createTokenAccount(provider, provider.wallet.publicKey, mint, 100_000 * LAMPORTS_PER_SOL);
         const employeeAccount = await createTokenAccount(provider, employee, mint);
 
-        const threeYearsAgo = moment().subtract(2, 'years');
-        const params = makeParams(threeYearsAgo, 12, 4, 1, '40000');
+        const twoYearsAgo = moment().subtract(2, 'years');
+        const params = makeParams(twoYearsAgo, 12, 4, 1, '40000');
         console.log(JSON.stringify(params));
         const initializeTransaction = await program.methods
             .initialize(params)
             .accounts({
                 employee,
                 employer,
-                grant,
-                escrowAuthority,
-                escrowTokenAccount,
                 mint,
                 employerAccount,
             })
@@ -58,9 +50,6 @@ describe("Withdraw", () => {
             .accounts({
                 employee,
                 employer,
-                grant,
-                escrowAuthority,
-                escrowTokenAccount,
                 employeeAccount,
             })
             .signers([employeeKeypair])
@@ -69,7 +58,11 @@ describe("Withdraw", () => {
           withdrawTransaction,
           COMMITMENT
         );
-        console.log(tx.meta.logMessages)
+        const { grant, escrowAuthority, escrowTokenAccount } = await getPDAs({
+          employer,
+          employee,
+          programId: program.programId,
+        });
         expect(tx.meta.innerInstructions[0].instructions[0].programId.toBase58()).eql(spl.TOKEN_PROGRAM_ID.toBase58())
         expect((tx.meta.innerInstructions[0].instructions[0] as any).parsed.type).eql("transfer");
         const result: ParsedTokenTransfer = (tx.meta.innerInstructions[0].instructions[0] as any).parsed.info
@@ -84,10 +77,8 @@ describe("Withdraw", () => {
         expect(parseInt(result.amount) / LAMPORTS_PER_SOL).lte(expectedAmount + 30);
         console.log(JSON.stringify(result));
 
-
         // Check data
         const grantData = await program.account.grant.fetch(grant, 'confirmed');
         expect(grantData.alreadyIssuedTokenAmount.toString()).to.eq(result.amount);
-
     });
 });

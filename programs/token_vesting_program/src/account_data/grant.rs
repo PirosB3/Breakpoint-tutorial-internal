@@ -15,7 +15,6 @@ pub struct Grant {
     pub params: GrantInputParams,
     pub already_issued_token_amount: u64,
     pub revoked: bool,
-
     pub initialized: bool,
     pub employer: Pubkey,
     pub employee: Pubkey,

@@ -26,11 +26,6 @@ describe("Revoke", () => {
         const employer = provider.wallet.publicKey;
         const employeeKeypair = Keypair.generate();
         const employee = employeeKeypair.publicKey;
-        const { grant, escrowAuthority, escrowTokenAccount } = await getPDAs({
-          employer,
-          employee,
-          programId: program.programId,
-        });
         const mint = await createMint(provider);
         const employerAccount = await createTokenAccount(provider, provider.wallet.publicKey, mint, 100_000 * LAMPORTS_PER_SOL);
         const employeeAccount = await createTokenAccount(provider, employee, mint);
@@ -42,9 +37,6 @@ describe("Revoke", () => {
             .accounts({
                 employee,
                 employer,
-                grant,
-                escrowAuthority,
-                escrowTokenAccount,
                 mint,
                 employerAccount,
             })
@@ -57,9 +49,6 @@ describe("Revoke", () => {
             .accounts({
                 employee,
                 employer,
-                grant,
-                escrowAuthority,
-                escrowTokenAccount,
                 employeeAccount,
                 employerAccount,
             })
@@ -68,6 +57,11 @@ describe("Revoke", () => {
           withdrawTransaction,
           COMMITMENT
         );
+        const { grant, escrowAuthority, escrowTokenAccount } = await getPDAs({
+          employer,
+          employee,
+          programId: program.programId,
+        });
         expect(tx.meta.innerInstructions[0].instructions[0].programId.toBase58()).eql(spl.TOKEN_PROGRAM_ID.toBase58())
         expect((tx.meta.innerInstructions[0].instructions[1] as any).parsed.type).eql("transfer");
         const transferToEmployee: ParsedTokenTransfer = (tx.meta.innerInstructions[0].instructions[0] as any).parsed.info

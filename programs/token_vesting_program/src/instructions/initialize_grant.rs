@@ -3,6 +3,7 @@ use anchor_spl::token::{transfer, Mint, Token, TokenAccount, Transfer};
 
 use crate::account_data::{Bumps, Grant};
 use crate::utils::{get_vesting_instance, GrantInputParams, GrantStateParams};
+use crate::TokenVestingError;
 
 #[derive(Accounts)]
 pub struct InitializeNewGrant<'info> {
@@ -10,8 +11,7 @@ pub struct InitializeNewGrant<'info> {
     // 👇 👇 👇 👇 👇
     #[account(mut)]
     employer: Signer<'info>,
-    /// CHECK: The account should just be the public key of whoever we want to give the grant to
-    employee: AccountInfo<'info>,
+    employee: SystemAccount<'info>,
     #[account(constraint = mint.is_initialized == true)]
     mint: Account<'info, Mint>,
     #[account(mut, token::mint=mint, token::authority=employer)]
@@ -23,20 +23,19 @@ pub struct InitializeNewGrant<'info> {
         init,
         payer = employer,
         space = Grant::MAX_SIZE,
-        seeds = [b"grant", employer.key().as_ref(), employee.key().as_ref()], bump
+        seeds = [b"grant".as_ref(), employer.key().as_ref(), employee.key().as_ref()], bump
     )]
     grant: Account<'info, Grant>,
     #[account(
-        seeds = [b"authority", grant.key().as_ref()], bump
+        seeds = [b"authority".as_ref(), grant.key().as_ref()], bump
     )]
-    /// CHECK: The account is a PDA and does not read/write data
-    escrow_authority: AccountInfo<'info>,
+    escrow_authority: SystemAccount<'info>,
     #[account(
         init,
         payer = employer,
         token::mint=mint,
         token::authority=escrow_authority,
-        seeds = [b"tokens", grant.key().as_ref()], bump
+        seeds = [b"tokens".as_ref(), grant.key().as_ref()], bump
     )]
     escrow_token_account: Account<'info, TokenAccount>,
 
@@ -47,37 +46,47 @@ pub struct InitializeNewGrant<'info> {
     rent: Sysvar<'info, Rent>,
 }
 
-/// This is the first instruction called by the employer when they want to set up a new vesting grant.
-/// This instruction will set up the vesting schedule, validate the parameters, and transfer the total
-/// grant size to an escrow account (called grant_custody).
+/// Goal of instruction
+/// 1) Validate the vesting input parameters (exit if error)
+/// 2) Transfer the total grant size to an escrow token account
+/// 3) Initialize state
 impl<'info> InitializeNewGrant<'info> {
-    pub fn system_program_context<T: ToAccountMetas + ToAccountInfos<'info>>(
+    pub fn token_program_context<T: ToAccountMetas + ToAccountInfos<'info>>(
         &self,
         data: T,
     ) -> CpiContext<'_, '_, '_, 'info, T> {
-        CpiContext::new(self.system_program.to_account_info(), data)
+        CpiContext::new(self.token_program.to_account_info(), data)
     }
 
     pub fn handle(&mut self, params: GrantInputParams, bumps: Bumps) -> Result<()> {
+
+        // Quick check to ensure grant token amount is greater than 0
+        // if params.grant_token_amount == 0 {
+        //     return err!(TokenVestingError::EmployerNGMI);
+        // }
+
         // Load vesting instance from params passed in to the instruction.
         // If there is an error in the parameters, an error will be returned and
         // program will exit.
-        let _ = get_vesting_instance(
+        let vesting_result = get_vesting_instance(
             &params,
             GrantStateParams {
                 revoked: false,
                 already_issued_token_amount: 0,
             },
-        )?;
+        );
+        if vesting_result.is_err() {
+            return err!(TokenVestingError::ParamsInvalid);
+        }
 
-        // Transfer SOL from the employer to the escrow account (specifically for this employee) based on the input parameters
+        // Transfer token from the employer to the escrow account (specifically for this grant) based on the input parameters
         //
-        // Example: Total grant is 7000 SOL
+        // Example: Total grant is 7000 tokens
         // Employer -> 7000 SOL -> Grant Custody
         //
         // NOTE: Writing to a new account requires us to pay rent for that account (even if no bytes are written).
         let amount_to_transfer = params.grant_token_amount;
-        let context = self.system_program_context(Transfer {
+        let context = self.token_program_context(Transfer {
             from: self.employer_account.to_account_info(),
             to: self.escrow_token_account.to_account_info(),
             authority: self.employer.to_account_info(),
@@ -85,15 +94,16 @@ impl<'info> InitializeNewGrant<'info> {
         transfer(context, amount_to_transfer)?;
 
         // Transfer was successful - let's store the grant terms (and other important info we want to persist) in to the memory of grant_account.
-        let grant_account = &mut self.grant;
-        grant_account.params = params;
-        grant_account.already_issued_token_amount = 0;
-        grant_account.revoked = false;
-        grant_account.initialized = true;
-        grant_account.employee = self.employee.key();
-        grant_account.employer = self.employer.key();
-        grant_account.mint = self.mint.key();
-        grant_account.bumps = bumps;
+        self.grant.set_inner(Grant {
+            params,
+            already_issued_token_amount: 0,
+            revoked: false,
+            initialized: true,
+            employer: self.employer.key(),
+            employee: self.employee.key(),
+            mint: self.mint.key(),
+            bumps,
+        });
         Ok(())
     }
 }
