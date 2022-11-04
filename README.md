@@ -28,3 +28,15 @@ You can install Anchor. Follow the installation guide on [this](https://www.anch
 ```
 
 All tests should run successfully, Hurra!
+
+## A few screenshots from the instructions 📸
+
+![Initialize accounts]("images/initialize.account.png")
+
+
+
+### A few considerations
+
+- All code is unaudited. Please sure at your own risk! ☠️
+- The Anchor project config is fairly standard, but I did enable the `seeds` feature that is disabled in Anchor by default.
+
