@@ -29,9 +29,22 @@ You can install Anchor. Follow the installation guide on [this](https://www.anch
 
 All tests should run successfully, Hurra!
 
-## A few screenshots from the instructions 📸
+## Initialize Instruction 📸
 
-![Initialize accounts]("images/initialize.account.png")
+![Initialize accounts](images/initialize.account.png)
+![Initialize ix](images/initialize.ix.png)
+
+## Withdraw Instruction 📸
+
+![Withdraw accounts](images/withdraw.account.png)
+![Withdraw ix](images/withdraw.ix.png)
+
+## Revoke Instruction 📸
+
+![Revoke accounts](images/revoke.account.png)
+![Revoke ix](images/revoke.ix.png)
+
+
 
 
 
