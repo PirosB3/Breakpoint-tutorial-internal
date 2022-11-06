@@ -9,9 +9,9 @@ use crate::utils::{get_vesting_instance, GrantStateParams};
 pub struct RevokeGrant<'info> {
     // External accounts section
     // 👇 👇 👇 👇 👇
-    #[account(constraint = employer.key() == grant.employer)]
+    #[account(address = grant.employer)]
     employer: Signer<'info>,
-    #[account(constraint = employee.key() == grant.employee)]
+    #[account(address = grant.employee)]
     employee: SystemAccount<'info>,
     #[account(mut, token::mint=grant.mint, token::authority=employer)]
     employer_account: Account<'info, TokenAccount>,
