@@ -1,3 +1,3 @@
-pub mod initialize_grant;
-pub mod revoke_grant;
+pub mod initialize;
+pub mod revoke;
 pub mod withdraw;

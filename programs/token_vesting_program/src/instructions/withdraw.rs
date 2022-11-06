@@ -9,9 +9,9 @@ use crate::utils::{get_vesting_instance, GrantStateParams};
 pub struct WithdrawGrant<'info> {
     // external accounts section
     // 👇 👇 👇 👇 👇
-    #[account(constraint = employee.key() == grant.employee)]
+    #[account(address = grant.employee)]
     employee: Signer<'info>,
-    #[account(constraint = employer.key() == grant.employer)]
+    #[account(address = grant.employer)]
     employer: SystemAccount<'info>,
     #[account(mut, token::mint=grant.mint, token::authority=employee)]
     employee_account: Account<'info, TokenAccount>,
@@ -55,61 +55,62 @@ impl<'info> WithdrawGrant<'info> {
     ) -> CpiContext<'_, '_, '_, 'info, T> {
         CpiContext::new(self.token_program.to_account_info(), data)
     }
+}
 
-    /// Goal of instruction
-    /// 1) Get releasable amount that can be withdrawn by employee
-    /// 2) Transfer amount to employee-owned token account
-    /// 3) Update state
-    pub fn handle(&mut self) -> Result<()> {
-        // Load vesting instance from the internal state.
-        let vesting = get_vesting_instance(
-            &self.grant.params,
-            GrantStateParams {
-                revoked: self.grant.revoked,
-                already_issued_token_amount: self.grant.already_issued_token_amount,
-            },
-        )?;
+/// Goal of instruction
+/// 1) Get releasable amount that can be withdrawn by employee
+/// 2) Transfer amount to employee-owned token account
+/// 3) Update state
+pub fn withdraw(ctx: Context<WithdrawGrant>) -> Result<()> {
+    // Load vesting instance from the internal state.
+    let accounts = &ctx.accounts;
+    let vesting = get_vesting_instance(
+        &accounts.grant.params,
+        GrantStateParams {
+            revoked: accounts.grant.revoked,
+            already_issued_token_amount: accounts.grant.already_issued_token_amount,
+        },
+    )?;
 
-        // Compute the current releasable amount
+    // Compute the current releasable amount
+    //
+    // Example: Total grant is 4000 SOL
+    // 1/4 is vested
+    //
+    let clock = Clock::get()?;
+    let releasable_amount = vesting
+        .get_releasable_amount(&GetReleasableAmountParams {
+            current_time_unix: clock.unix_timestamp as u64,
+        })
+        .unwrap();
+    msg!("Releasable amount: {}", releasable_amount);
+    // Before a grant is permanently terminated, we force the employee
+    // to withdraw all the remaining (vested) tokens - if any exist.
+
+    // Only the program is able to sign for the PDAs.
+
+    if releasable_amount > 0 {
+        // In this transfer, we must pass in Signer Seeds - because funds are going from the Grat Custody
+        // To the employee - and Grant Custody is a PDA.
         //
-        // Example: Total grant is 4000 SOL
-        // 1/4 is vested
-        //
-        let clock = Clock::get()?;
-        let releasable_amount = vesting
-            .get_releasable_amount(&GetReleasableAmountParams {
-                current_time_unix: clock.unix_timestamp as u64,
-            })
-            .unwrap();
-        msg!("Releasable amount: {}", releasable_amount);
-        // Before a grant is permanently terminated, we force the employee
-        // to withdraw all the remaining freable (vested) tokens - if any exist.
-
-        // Only the program is able to sign for the PDAs.
-
-        if releasable_amount > 0 {
-            // In this transfer, we must pass in Signer Seeds - because funds are going from the Grat Custody
-            // To the employee - and Grant Custody is a PDA.
-            //
-            // Grant Custody -> 1000 SOL -> Employee
-            transfer(
-                self.token_program_context(Transfer {
-                    from: self.escrow_token_account.to_account_info(),
-                    to: self.employee_account.to_account_info(),
-                    authority: self.escrow_authority.to_account_info(),
+        // Grant Custody -> 1000 SOL -> Employee
+        transfer(
+            accounts
+                .token_program_context(Transfer {
+                    from: accounts.escrow_token_account.to_account_info(),
+                    to: accounts.employee_account.to_account_info(),
+                    authority: accounts.escrow_authority.to_account_info(),
                 })
                 .with_signer(&[&[
                     b"authority",
-                    self.grant.key().as_ref(),
-                    &[self.grant.bumps.escrow_authority],
+                    accounts.grant.key().as_ref(),
+                    &[accounts.grant.bumps.escrow_authority],
                 ]]),
-                releasable_amount,
-            )?;
-            // Transfer was successful, update persistent state to account for the funds already released.
-            let data = &mut self.grant;
-            data.already_issued_token_amount = data.already_issued_token_amount + releasable_amount;
-            msg!("OUT -> {}", data.already_issued_token_amount);
-        }
-        Ok(())
+            releasable_amount,
+        )?;
+        // Transfer was successful, update persistent state to account for the funds already released.
+        ctx.accounts.grant.already_issued_token_amount += releasable_amount;
+        msg!("OUT -> {}", ctx.accounts.grant.already_issued_token_amount);
     }
+    Ok(())
 }
