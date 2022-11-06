@@ -32,6 +32,8 @@ describe("Initialize", () => {
                 employer,
                 mint,
                 employerAccount,
+                // Uncomment here for triggering bug
+                // tokenProgram: mint,
             })
             .rpc(COMMITMENT);
         console.log(`[Initialize] ${initializeTransaction}`);

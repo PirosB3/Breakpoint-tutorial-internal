@@ -12,10 +12,15 @@ pub struct Bumps {
 /// Stores data about the vesting schedule
 #[account]
 pub struct Grant {
+    // Input parameters - will never change
     pub params: GrantInputParams,
+    
+    // State parameters - will change
     pub already_issued_token_amount: u64,
     pub revoked: bool,
     pub initialized: bool,
+
+    // Public keys used for safety checks in "withdraw" + "revoke"
     pub employer: Pubkey,
     pub employee: Pubkey,
     pub mint: Pubkey,
@@ -23,7 +28,7 @@ pub struct Grant {
 }
 
 impl Grant {
-    pub const MAX_SIZE: usize = {
+    pub const LEN: usize = {
         let discriminant = 8;
         let grant_input_params = 5 * 8;
         let grant_bumps = 3 * 1;

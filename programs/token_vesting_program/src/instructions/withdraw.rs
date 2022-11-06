@@ -72,11 +72,8 @@ pub fn withdraw(ctx: Context<WithdrawGrant>) -> Result<()> {
         },
     )?;
 
-    // Compute the current releasable amount
-    //
-    // Example: Total grant is 4000 SOL
-    // 1/4 is vested
-    //
+    // Before a grant is permanently terminated, we force the employee
+    // to withdraw all the remaining (vested) tokens - if any exist.
     let clock = Clock::get()?;
     let releasable_amount = vesting
         .get_releasable_amount(&GetReleasableAmountParams {
@@ -84,13 +81,9 @@ pub fn withdraw(ctx: Context<WithdrawGrant>) -> Result<()> {
         })
         .unwrap();
     msg!("Releasable amount: {}", releasable_amount);
-    // Before a grant is permanently terminated, we force the employee
-    // to withdraw all the remaining (vested) tokens - if any exist.
-
-    // Only the program is able to sign for the PDAs.
 
     if releasable_amount > 0 {
-        // In this transfer, we must pass in Signer Seeds - because funds are going from the Grat Custody
+        // In this transfer, we must pass in Signer Seeds - because funds are going from the Grant Custody
         // To the employee - and Grant Custody is a PDA.
         //
         // Grant Custody -> 1000 SOL -> Employee
@@ -108,8 +101,13 @@ pub fn withdraw(ctx: Context<WithdrawGrant>) -> Result<()> {
                 ]]),
             releasable_amount,
         )?;
+
         // Transfer was successful, update persistent state to account for the funds already released.
-        ctx.accounts.grant.already_issued_token_amount += releasable_amount;
+        // 
+        // Prevent arithmetic errors in Solana smart contracts
+        // https://medium.com/coinmonks/understanding-arithmetic-overflow-underflows-in-rust-and-solana-smart-contracts-9f3c9802dc45
+        let updated_issued_amount = ctx.accounts.grant.already_issued_token_amount.checked_add(releasable_amount).unwrap();
+        ctx.accounts.grant.already_issued_token_amount = updated_issued_amount;
         msg!("OUT -> {}", ctx.accounts.grant.already_issued_token_amount);
     }
     Ok(())
