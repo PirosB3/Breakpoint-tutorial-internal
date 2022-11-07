@@ -23,7 +23,7 @@ pub struct InitializeNewGrant<'info> {
     #[account(
         init,
         payer = employer,
-        space = Grant::MAX_SIZE,
+        space = Grant::LEN,
         seeds = [b"grant".as_ref(), employer.key().as_ref(), employee.key().as_ref()], bump
     )]
     grant: Account<'info, Grant>,

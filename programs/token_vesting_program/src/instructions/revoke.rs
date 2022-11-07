@@ -101,7 +101,7 @@ pub fn revoke(ctx: Context<RevokeGrant>) -> Result<()> {
         data.already_issued_token_amount += releasable_amount;
     }
 
-    // Compute how much of the remaining grant is stil in the escrow
+    // Compute how much of the remaining grant is still in the escrow
     // account (grant custody).
     // Send all the remaining amount back to employer
     ctx.accounts.escrow_token_account.reload()?;
