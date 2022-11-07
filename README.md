@@ -45,11 +45,15 @@ All tests should run successfully, Hurra!
 ![Revoke ix](images/revoke.ix.png)
 
 
-
-
-
 ### A few considerations
 
 - All code is unaudited. Please sure at your own risk! ☠️
 - The Anchor project config is fairly standard, but I did enable the `seeds` feature that is disabled in Anchor by default.
 
+
+### Many many Thank Yous!
+
+- Danni Hu (@danniphu) - for being supportive and helping me with slides
+- Henry Elder (@Henry_E__) - for reviewing my code and for being the Anchor Expert
+- Armani Ferrante (@armaniferrante) - for creating Anchor!
+- Phantom fam - for being present and supporting me!
